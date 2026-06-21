@@ -45,7 +45,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Navbar userName={userEmail} />
+      <Navbar />
 
       {showImageModal && (
         <ImageSearchModal onClose={() => setShowImageModal(false)} onIdentified={handleImageIdentified} />
