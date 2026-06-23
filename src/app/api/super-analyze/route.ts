@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     if (!geminiKey) return NextResponse.json({ error: "未配置 AI" }, { status: 500 });
 
     const genAI = new GoogleGenerativeAI(geminiKey);
+    // Try gemini-2.0-flash first, fall back to gemini-1.5-flash
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `You are AI SUPER BUYER V2.0 — a world-class procurement director with 25+ years experience in international sourcing, e-commerce, fraud detection, and supply chain auditing.
@@ -127,14 +128,38 @@ Return ONLY valid JSON (no markdown, no explanation):
   }
 }`;
 
-    const result = await model.generateContent(prompt);
+    let result;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (e1) {
+      console.error("[super-analyze] gemini-2.0-flash failed:", String(e1));
+      // Fallback to gemini-1.5-flash
+      const model2 = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      result = await model2.generateContent(prompt);
+    }
     const text = result.response.text().trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return NextResponse.json({ error: "AI 分析失败" }, { status: 500 });
-    const analysis = JSON.parse(jsonMatch[0]);
+
+    // Strip markdown fences and parse JSON
+    const cleaned = text.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
+    let analysis = null;
+    try {
+      analysis = JSON.parse(cleaned);
+    } catch {
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { analysis = JSON.parse(m[0]); } catch {}
+      }
+    }
+
+    if (!analysis) {
+      console.error("[super-analyze] JSON parse failed. Raw text:", text.slice(0, 500));
+      return NextResponse.json({ error: "AI 分析失败，请重试" }, { status: 500 });
+    }
+
     return NextResponse.json({ analysis });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "分析服务暂时不可用" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[super-analyze] fatal:", msg);
+    return NextResponse.json({ error: `分析失败: ${msg.slice(0, 120)}` }, { status: 500 });
   }
 }
