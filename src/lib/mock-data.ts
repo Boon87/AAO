@@ -1,4 +1,4 @@
-export type Platform = "shopee" | "lazada" | "tiktok";
+export type Platform = "shopee" | "lazada" | "tiktok" | "taobao" | "pinduoduo" | "1688";
 
 export type AuthenticityLevel = "high" | "medium" | "low";
 
@@ -152,10 +152,16 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   shopee: "Shopee",
   lazada: "Lazada",
   tiktok: "TikTok Shop",
+  taobao: "淘宝",
+  pinduoduo: "拼多多",
+  "1688": "1688",
 };
 
 export const PLATFORM_COLORS: Record<Platform, string> = {
   shopee: "bg-orange-100 text-orange-700",
   lazada: "bg-blue-100 text-blue-700",
   tiktok: "bg-pink-100 text-pink-700",
+  taobao: "bg-red-100 text-red-700",
+  pinduoduo: "bg-green-100 text-green-700",
+  "1688": "bg-amber-100 text-amber-700",
 };

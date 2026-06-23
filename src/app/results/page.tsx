@@ -15,6 +15,87 @@ import { calculateAuthenticityScore } from "@/lib/authenticity";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 
+// CNY to MYR approximate rate (used for Chinese platforms)
+const CNY_TO_MYR = 0.63;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseTaobaoData(raw: any): Product[] {
+  if (!raw) return [];
+  const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!items.length) return [];
+  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const priceCny = parseFloat(i.price) || 0;
+    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
+    const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: 24, marketAvgPrice: marketAvg });
+    return {
+      id: `taobao-${idx}-${Date.now()}`,
+      name: i.name || i.title || "未知商品",
+      price, sales, reviews: 0, rating: 0,
+      platform: "taobao",
+      shopName: i.shop || "淘宝卖家",
+      shopAge: 24,
+      imageUrl: i.image ? (i.image.startsWith("//") ? "https:" + i.image : i.image) : "https://placehold.co/200x200/fef2f2/dc2626?text=淘宝",
+      url: i.itemUrl?.startsWith("http") ? i.itemUrl : (i.itemUrl ? "https:" + i.itemUrl : "https://www.taobao.com"),
+      authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
+    };
+  }).filter(p => p.name && p.price > 0);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parsePddData(raw: any): Product[] {
+  if (!raw) return [];
+  const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!items.length) return [];
+  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const priceCny = parseFloat(i.price) || 0;
+    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const sales = parseInt(String(i.sales).replace(/[^0-9万]/g, "").replace("万", "0000")) || 0;
+    const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: 18, marketAvgPrice: marketAvg });
+    return {
+      id: `pdd-${idx}-${Date.now()}`,
+      name: i.name || i.title || "未知商品",
+      price, sales, reviews: 0, rating: 0,
+      platform: "pinduoduo",
+      shopName: i.shop || "拼多多商家",
+      shopAge: 18,
+      imageUrl: i.image || "https://placehold.co/200x200/f0fdf4/16a34a?text=拼多多",
+      url: i.itemUrl || "https://www.pinduoduo.com",
+      authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
+    };
+  }).filter(p => p.name && p.price > 0);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parse1688Data(raw: any): Product[] {
+  if (!raw) return [];
+  const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!items.length) return [];
+  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const priceCny = parseFloat(i.price) || 0;
+    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
+    const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: parseInt(String(i.shopAge)) || 36, marketAvgPrice: marketAvg });
+    return {
+      id: `1688-${idx}-${Date.now()}`,
+      name: i.name || i.title || "未知商品",
+      price, sales, reviews: 0, rating: 0,
+      platform: "1688",
+      shopName: i.shop || "1688供应商",
+      shopAge: parseInt(String(i.shopAge)) || 36,
+      imageUrl: i.image ? (i.image.startsWith("//") ? "https:" + i.image : i.image) : "https://placehold.co/200x200/fefce8/ca8a04?text=1688",
+      url: i.itemUrl || "https://www.1688.com",
+      authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
+    };
+  }).filter(p => p.name && p.price > 0);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseLazadaData(rawPayload: any): Product[] {
   const BASE = "https://www.lazada.com.my";
@@ -210,10 +291,34 @@ function ResultsContent() {
         })
       : Promise.resolve([]);
 
-    Promise.all([shopeePromise, lazadaPromise])
-      .then(([shopeeProducts, lazadaProducts]) => {
+    const taobaoPromise: Promise<Product[]> = platforms.includes("taobao")
+      ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 25000).then((d) => {
+          if (!d) return [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return parseTaobaoData(d as any);
+        })
+      : Promise.resolve([]);
+
+    const pddPromise: Promise<Product[]> = platforms.includes("pinduoduo")
+      ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 25000).then((d) => {
+          if (!d) return [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return parsePddData(d as any);
+        })
+      : Promise.resolve([]);
+
+    const p1688Promise: Promise<Product[]> = platforms.includes("1688")
+      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 25000).then((d) => {
+          if (!d) return [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return parse1688Data(d as any);
+        })
+      : Promise.resolve([]);
+
+    Promise.all([shopeePromise, lazadaPromise, taobaoPromise, pddPromise, p1688Promise])
+      .then(([shopeeProducts, lazadaProducts, taobaoProducts, pddProducts, p1688Products]) => {
         if (cancelled) return;
-        const allProducts = [...shopeeProducts, ...lazadaProducts];
+        const allProducts = [...shopeeProducts, ...lazadaProducts, ...taobaoProducts, ...pddProducts, ...p1688Products];
         const prices = allProducts.map((p) => p.price).filter((p) => p > 0);
         const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
         setData({
@@ -413,17 +518,19 @@ function ResultsContent() {
               </span>
 
               <div className="flex flex-wrap gap-1.5">
-                {(["all", "shopee", "lazada"] as const).map((p) => (
-                  <button key={p} onClick={() => setFilterPlatform(p)}
-                    className={clsx("px-3 py-1 rounded-lg text-xs font-medium transition-colors border",
-                      filterPlatform === p
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}>
-                    {p === "all"
-                      ? `${t("res_all_platforms")} (${allProducts.length})`
-                      : `${PLATFORM_LABELS[p]} (${platformCounts[p] || 0})`}
-                  </button>
-                ))}
+                {(["all", "shopee", "lazada", "taobao", "pinduoduo", "1688"] as const).map((p) => {
+                  const count = p === "all" ? allProducts.length : (platformCounts[p] || 0);
+                  if (p !== "all" && count === 0) return null;
+                  return (
+                    <button key={p} onClick={() => setFilterPlatform(p)}
+                      className={clsx("px-3 py-1 rounded-lg text-xs font-medium transition-colors border",
+                        filterPlatform === p
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}>
+                      {p === "all" ? `${t("res_all_platforms")} (${count})` : `${PLATFORM_LABELS[p]} (${count})`}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="h-4 w-px bg-slate-200 hidden sm:block" />

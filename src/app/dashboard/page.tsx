@@ -10,8 +10,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 
 const PLATFORMS = [
-  { id: "shopee", label: "Shopee", color: "border-orange-400 bg-orange-50 text-orange-700" },
-  { id: "lazada", label: "Lazada", color: "border-blue-400 bg-blue-50 text-blue-700" },
+  { id: "shopee",    label: "Shopee",  color: "border-orange-400 bg-orange-50 text-orange-700", group: "MY" },
+  { id: "lazada",    label: "Lazada",  color: "border-blue-400 bg-blue-50 text-blue-700",       group: "MY" },
+  { id: "taobao",    label: "淘宝",    color: "border-red-400 bg-red-50 text-red-700",           group: "CN" },
+  { id: "pinduoduo", label: "拼多多",  color: "border-green-400 bg-green-50 text-green-700",     group: "CN" },
+  { id: "1688",      label: "1688",    color: "border-amber-400 bg-amber-50 text-amber-700",     group: "CN" },
 ];
 
 export default function DashboardPage() {
@@ -203,23 +206,28 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <span className="text-sm text-slate-500 shrink-0">{t("dash_platform_label")}</span>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((p) => (
-                <button key={p.id} onClick={() => togglePlatform(p.id)}
-                  className={clsx("flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-medium transition-all",
-                    selected.includes(p.id) ? p.color : "border-slate-200 bg-white text-slate-400")}>
-                  <span className={clsx("w-4 h-4 rounded border-2 flex items-center justify-center",
-                    selected.includes(p.id) ? "border-current bg-current" : "border-slate-300")}>
-                    {selected.includes(p.id) && (
-                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
-                      </svg>
-                    )}
-                  </span>
-                  {p.label}
-                </button>
+          <div className="mt-4 flex flex-col gap-2">
+            <span className="text-sm text-slate-500">{t("dash_platform_label")}</span>
+            <div className="flex flex-col gap-2">
+              {["MY", "CN"].map(group => (
+                <div key={group} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-slate-400 w-12 shrink-0">{group === "MY" ? "🇲🇾 MY" : "🇨🇳 CN"}</span>
+                  {PLATFORMS.filter(p => p.group === group).map((p) => (
+                    <button key={p.id} onClick={() => togglePlatform(p.id)}
+                      className={clsx("flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 text-sm font-medium transition-all",
+                        selected.includes(p.id) ? p.color : "border-slate-200 bg-white text-slate-400")}>
+                      <span className={clsx("w-4 h-4 rounded border-2 flex items-center justify-center shrink-0",
+                        selected.includes(p.id) ? "border-current bg-current" : "border-slate-300")}>
+                        {selected.includes(p.id) && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                          </svg>
+                        )}
+                      </span>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           </div>
