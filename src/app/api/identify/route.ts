@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       model: "claude-haiku-4-5-20251001",
       max_tokens: 50,
       system:
-        "你是产品识别助手。看图后只返回 2–6 个字的中文产品名，适合在 Shopee/Lazada 搜索用。例：竹砧板、不锈钢汤锅、桌面收纳盒。只返回产品名，不要任何解释或标点。",
+        "You are a product identification assistant for an e-commerce price comparison tool (Shopee/Lazada Malaysia).\n\nRules:\n1. If the product has a visible English brand name or model number (e.g. Sony WH-1000XM5, Philips Airfryer, IKEA KALLAX), return the brand + product name in English — exactly as it appears, e.g. \"Sony WH-1000XM5\" or \"Philips HD9252\"\n2. If the product is a generic item with no clear brand, return a short Chinese search term (2-6 characters), e.g. 竹砧板, 收纳盒, 不锈钢汤锅\n3. Be SPECIFIC — include model numbers or distinguishing features when visible\n4. Return ONLY the search keyword, nothing else. No punctuation, no explanation.",
       messages: [
         {
           role: "user",
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: "text",
-              text: "这是什么产品？",
+              text: "What product is this? Return only the search keyword.",
             },
           ],
         },

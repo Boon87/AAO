@@ -10,8 +10,10 @@ import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { AuthenticityBadge } from "@/components/authenticity-badge";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Product } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/i18n";
 
 function CompareContent() {
+  const { t, lang } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const ids = searchParams.get("ids")?.split(",") || [];
@@ -32,9 +34,9 @@ function CompareContent() {
       <div className="min-h-screen flex flex-col bg-slate-50">
         <Navbar />
         <div className="flex-1 flex items-center justify-center flex-col gap-4">
-          <p className="text-slate-500">请至少选择 2 件产品进行对比</p>
+          <p className="text-slate-500">{t("cmp_no_products")}</p>
           <button onClick={() => router.back()} className="text-blue-600 hover:underline text-sm">
-            返回搜索结果
+            {t("cmp_go_results")}
           </button>
         </div>
       </div>
@@ -51,7 +53,7 @@ function CompareContent() {
 
   const rows: { label: string; render: (p: Product) => React.ReactNode }[] = [
     {
-      label: "售价",
+      label: t("cmp_attr_price"),
       render: (p) => (
         <div className="flex flex-col gap-1">
           <span className={clsx("text-2xl font-bold", p.price === minPrice ? "text-green-600" : "text-slate-900")}>
@@ -59,44 +61,44 @@ function CompareContent() {
           </span>
           {p.price === minPrice && products.length > 1 && (
             <span className="inline-flex w-fit text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
-              最低价 ✓
+              {lang === "zh" ? "最低价 ✓" : "Lowest ✓"}
             </span>
           )}
           {p.price === maxPrice && products.length > 1 && p.price !== minPrice && (
             <span className="inline-flex w-fit text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
-              最高价
+              {lang === "zh" ? "最高价" : "Highest"}
             </span>
           )}
         </div>
       ),
     },
     {
-      label: "销量",
+      label: t("cmp_attr_sales"),
       render: (p) => (
         <div className="flex flex-col gap-1">
           <span className={clsx("flex items-center gap-1.5 text-base font-semibold", p.sales === maxSales && p.sales > 0 ? "text-blue-600" : "text-slate-700")}>
             <ShoppingBag className="w-4 h-4 text-slate-400" />
-            {p.sales > 0 ? `${p.sales.toLocaleString()} 件` : "—"}
+            {p.sales > 0 ? p.sales.toLocaleString() : "—"}
           </span>
           {p.sales === maxSales && p.sales > 0 && (
             <span className="inline-flex w-fit text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
-              销量最高
+              {lang === "zh" ? "销量最高" : "Top Sales"}
             </span>
           )}
         </div>
       ),
     },
     {
-      label: "评价数",
+      label: t("cmp_attr_reviews"),
       render: (p) => (
         <span className="flex items-center gap-1.5 text-base text-slate-700">
           <MessageSquare className="w-4 h-4 text-slate-400" />
-          {p.reviews > 0 ? `${p.reviews.toLocaleString()} 条` : "—"}
+          {p.reviews > 0 ? p.reviews.toLocaleString() : "—"}
         </span>
       ),
     },
     {
-      label: "评分",
+      label: t("cmp_attr_rating"),
       render: (p) => (
         <span className="flex items-center gap-1.5 text-base text-slate-700">
           <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
@@ -105,24 +107,28 @@ function CompareContent() {
       ),
     },
     {
-      label: "店铺",
+      label: t("cmp_attr_shop"),
       render: (p) => (
         <div className="text-sm text-slate-700">
           <p className="font-medium">{p.shopName}</p>
-          {p.shopAge > 0 && <p className="text-slate-400 text-xs mt-0.5">店龄 {p.shopAge} 个月</p>}
+          {p.shopAge > 0 && (
+            <p className="text-slate-400 text-xs mt-0.5">
+              {lang === "zh" ? `店龄 ${p.shopAge} 个月` : `${p.shopAge} months old`}
+            </p>
+          )}
         </div>
       ),
     },
     {
-      label: "真实性评分",
+      label: t("cmp_attr_authenticity"),
       render: (p) => <AuthenticityBadge score={p.authenticityScore} level={p.authenticityLevel} />,
     },
     {
-      label: "可疑指标",
+      label: t("cmp_suspicious_flags"),
       render: (p) =>
         p.authenticityFlags.length === 0 ? (
           <div className="flex items-center gap-1.5 text-xs text-green-700">
-            <CheckCircle className="w-3.5 h-3.5" /> 未发现异常
+            <CheckCircle className="w-3.5 h-3.5" /> {t("cmp_no_flags")}
           </div>
         ) : (
           <ul className="space-y-1">
@@ -135,7 +141,7 @@ function CompareContent() {
         ),
     },
     {
-      label: "产品链接",
+      label: t("cmp_attr_link"),
       render: (p) =>
         p.url ? (
           <a
@@ -144,10 +150,10 @@ function CompareContent() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors"
           >
-            前往 {PLATFORM_LABELS[p.platform]} <ExternalLink className="w-3.5 h-3.5" />
+            {t("cmp_visit")} {PLATFORM_LABELS[p.platform]} <ExternalLink className="w-3.5 h-3.5" />
           </a>
         ) : (
-          <span className="text-xs text-slate-400">无链接</span>
+          <span className="text-xs text-slate-400">—</span>
         ),
     },
   ];
@@ -164,10 +170,12 @@ function CompareContent() {
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            返回结果
+            {t("cmp_back")}
           </button>
           <span className="text-slate-300">/</span>
-          <h1 className="text-lg font-bold text-slate-800">产品对比（{products.length} 件）</h1>
+          <h1 className="text-lg font-bold text-slate-800">
+            {t("cmp_title")} ({products.length})
+          </h1>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -186,7 +194,7 @@ function CompareContent() {
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="bg-slate-50 px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                      产品
+                      {lang === "zh" ? "产品" : "Product"}
                     </th>
                     {products.map((p) => (
                       <th key={p.id} className="px-4 py-4 text-left border-l border-slate-100">
@@ -237,14 +245,14 @@ function CompareContent() {
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
-                <h2 className="font-semibold text-slate-800">价格分析</h2>
+                <h2 className="font-semibold text-slate-800">{lang === "zh" ? "价格分析" : "Price Analysis"}</h2>
               </div>
               <div className="space-y-3">
                 {[
-                  { label: "均价", value: `RM ${avgPrice.toFixed(2)}`, color: "text-slate-800" },
-                  { label: "最低价", value: `RM ${minPrice.toFixed(2)}`, color: "text-green-600" },
-                  { label: "最高价", value: `RM ${maxPrice.toFixed(2)}`, color: "text-red-600" },
-                  { label: "价差", value: `RM ${(maxPrice - minPrice).toFixed(2)}`, color: "text-amber-600" },
+                  { label: lang === "zh" ? "均价" : "Avg", value: `RM ${avgPrice.toFixed(2)}`, color: "text-slate-800" },
+                  { label: lang === "zh" ? "最低价" : "Lowest", value: `RM ${minPrice.toFixed(2)}`, color: "text-green-600" },
+                  { label: lang === "zh" ? "最高价" : "Highest", value: `RM ${maxPrice.toFixed(2)}`, color: "text-red-600" },
+                  { label: lang === "zh" ? "价差" : "Spread", value: `RM ${(maxPrice - minPrice).toFixed(2)}`, color: "text-amber-600" },
                 ].map((item) => (
                   <div key={item.label} className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">{item.label}</span>
@@ -258,14 +266,16 @@ function CompareContent() {
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Info className="w-5 h-5 text-indigo-600" />
-                <h2 className="font-semibold text-slate-800">定价建议</h2>
+                <h2 className="font-semibold text-slate-800">{lang === "zh" ? "定价建议" : "Pricing Guide"}</h2>
               </div>
-              <p className="text-xs text-slate-400 mb-4">以所选均价 RM {avgPrice.toFixed(2)} 为基准：</p>
+              <p className="text-xs text-slate-400 mb-4">
+                {lang === "zh" ? `以所选均价 RM ${avgPrice.toFixed(2)} 为基准：` : `Based on avg RM ${avgPrice.toFixed(2)}:`}
+              </p>
               <div className="space-y-2.5">
                 {[
-                  { tier: "高竞争力", price: (avgPrice * 0.88).toFixed(2), desc: "低于均价 12%", color: "bg-green-50 border-green-200 text-green-800" },
-                  { tier: "市场水平", price: avgPrice.toFixed(2), desc: "与竞品持平", color: "bg-blue-50 border-blue-200 text-blue-800" },
-                  { tier: "品牌溢价", price: (avgPrice * 1.12).toFixed(2), desc: "高于均价 12%", color: "bg-purple-50 border-purple-200 text-purple-800" },
+                  { tier: lang === "zh" ? "高竞争力" : "Competitive", price: (avgPrice * 0.88).toFixed(2), desc: lang === "zh" ? "低于均价 12%" : "12% below avg", color: "bg-green-50 border-green-200 text-green-800" },
+                  { tier: lang === "zh" ? "市场水平" : "Market Rate", price: avgPrice.toFixed(2), desc: lang === "zh" ? "与竞品持平" : "Same as market", color: "bg-blue-50 border-blue-200 text-blue-800" },
+                  { tier: lang === "zh" ? "品牌溢价" : "Premium", price: (avgPrice * 1.12).toFixed(2), desc: lang === "zh" ? "高于均价 12%" : "12% above avg", color: "bg-purple-50 border-purple-200 text-purple-800" },
                 ].map((rec) => (
                   <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color)}>
                     <div className="flex justify-between items-center">

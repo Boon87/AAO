@@ -11,14 +11,14 @@ import { Navbar } from "@/components/navbar";
 import { ProductCard } from "@/components/product-card";
 import { PLATFORM_LABELS, type Platform, type Product } from "@/lib/mock-data";
 import { calculateAuthenticityScore } from "@/lib/authenticity";
+import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseLazadaData(rawPayload: any): Product[] {
   const BASE = "https://www.lazada.com.my";
-  // rawPayload is {source, data/items} from chrome.scripting.executeScript
   const payload = rawPayload?.source ? rawPayload : { source: "direct", data: rawPayload };
 
-  // DOM extraction path
   if (payload.source === "dom" && Array.isArray(payload.items)) {
     return payload.items.slice(0, 20).map((raw: any, i: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const price = parseFloat(raw.price) || 0;
@@ -34,7 +34,6 @@ function parseLazadaData(rawPayload: any): Product[] {
     });
   }
 
-  // API / JSON path
   const data = payload.data ?? payload;
   const items: unknown[] =
     data?.mods?.listItems ?? data?.data?.resultList ?? data?.listItems ?? [];
@@ -73,7 +72,6 @@ function parseLazadaData(rawPayload: any): Product[] {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseShopeeData(data: any): Product[] {
-  // API response has items at top level; page-intercepted response nests under .data
   const items: unknown[] = data?.items ?? data?.data?.items ?? [];
   if (!items.length) return [];
   const prices = (items as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -86,7 +84,7 @@ function parseShopeeData(data: any): Product[] {
     const b = raw.item_basic ?? raw;
     const price = (b.price_min ?? b.price ?? 0) / 100000;
     const originalPrice = b.price ? b.price / 100000 : undefined;
-    const sales = b.sold ?? b.historical_sold ?? 0;
+    const sales = b.historical_sold ?? b.sold ?? 0;
     const reviews = b.cmt_count ?? 0;
     const rating = b.item_rating?.rating_star ?? 0;
     const imageHash = b.image ?? "";
@@ -120,7 +118,26 @@ interface SearchData {
   errors: string[];
 }
 
+async function saveSearchHistory(query: string, platforms: string[], allProducts: Product[]) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const suspiciousCount = allProducts.filter((p) => p.authenticityLevel === "low").length;
+    await supabase.from("search_history").insert({
+      user_id: user.id,
+      query,
+      platforms,
+      result_count: allProducts.length,
+      suspicious_count: suspiciousCount,
+    });
+  } catch {
+    // Non-critical — ignore errors
+  }
+}
+
 function ResultsContent() {
+  const { t, lang } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
@@ -147,13 +164,12 @@ function ResultsContent() {
     const platforms = platformsParam.split(",");
     let cancelled = false;
 
-    // Helper: ask extension for one platform via postMessage
     function askExtension(msgType: string, resultType: string, timeoutMs = 10000): Promise<unknown> {
       return new Promise((resolve) => {
         const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const timer = setTimeout(() => {
           window.removeEventListener("message", handler);
-          resolve(null); // null = extension not responding
+          resolve(null);
         }, timeoutMs);
 
         const handler = (e: MessageEvent) => {
@@ -196,8 +212,9 @@ function ResultsContent() {
           errors: [],
         });
         setLoading(false);
+        saveSearchHistory(query, platforms, allProducts);
       })
-      .catch(() => { if (!cancelled) { setFetchError("搜索失败，请检查网络连接后重试"); setLoading(false); } });
+      .catch(() => { if (!cancelled) { setFetchError(t("res_search_failed")); setLoading(false); } });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,11 +263,11 @@ function ResultsContent() {
             <input value={newQuery} onChange={(e) => setNewQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleNewSearch()}
               className="flex-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
-              placeholder="重新搜索…" />
+              placeholder={t("res_re_search")} />
           </div>
           <button onClick={handleNewSearch}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 rounded-xl transition-colors">
-            搜索
+            {t("dash_search_btn")}
           </button>
         </div>
 
@@ -258,7 +275,9 @@ function ResultsContent() {
         {loading && (
           <div className="flex flex-col items-center py-24 gap-4">
             <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-            <p className="text-slate-500 text-sm">正在搜索「{query}」…</p>
+            <p className="text-slate-500 text-sm">
+              {lang === "zh" ? `正在搜索「${query}」…` : `Searching for "${query}"…`}
+            </p>
           </div>
         )}
 
@@ -271,7 +290,7 @@ function ResultsContent() {
             <p className="text-slate-700 font-semibold">{fetchError}</p>
             <button onClick={() => router.refresh()}
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
-              <RotateCcw className="w-4 h-4" />重试
+              <RotateCcw className="w-4 h-4" />{t("res_retry")}
             </button>
           </div>
         )}
@@ -279,15 +298,13 @@ function ResultsContent() {
         {/* Results */}
         {!loading && !fetchError && data && (
           <>
-            {/* Extension missing notice */}
             {extensionMissing && platformsParam.includes("shopee") && (
               <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                Shopee 需要 AAO 扩展（已安装请重载扩展并刷新页面）
+                {t("res_extension_missing")}
               </div>
             )}
 
-            {/* Platform error notices */}
             {data.errors.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -298,10 +315,13 @@ function ResultsContent() {
             {/* Summary row */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
-                <h1 className="text-lg font-bold text-slate-800">「{query}」的搜索结果</h1>
+                <h1 className="text-lg font-bold text-slate-800">
+                  {lang === "zh" ? `「${query}」${t("res_results_for")}` : `"${query}" ${t("res_results_for")}`}
+                </h1>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  共找到 {allProducts.length} 件产品
-                  {data.marketAvgPrice > 0 && ` · 市场均价 RM ${data.marketAvgPrice.toFixed(2)}`}
+                  {lang === "zh"
+                    ? `共找到 ${allProducts.length} 件产品${data.marketAvgPrice > 0 ? ` · 市场均价 RM ${data.marketAvgPrice.toFixed(2)}` : ""}`
+                    : `Found ${allProducts.length} products${data.marketAvgPrice > 0 ? ` · Market avg RM ${data.marketAvgPrice.toFixed(2)}` : ""}`}
                 </p>
               </div>
               {selectedIds.length >= 2 && (
@@ -311,7 +331,8 @@ function ResultsContent() {
                   router.push(`/compare?ids=${selectedIds.join(",")}`);
                 }}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
-                  <GitCompare className="w-4 h-4" />对比已选 ({selectedIds.length} 件)
+                  <GitCompare className="w-4 h-4" />
+                  {t("res_compare_btn")} ({selectedIds.length} {t("res_items_unit")})
                 </button>
               )}
             </div>
@@ -319,7 +340,7 @@ function ResultsContent() {
             {/* Filter bar */}
             <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 mb-6 flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5 text-sm font-medium text-slate-600 shrink-0">
-                <SlidersHorizontal className="w-4 h-4" />筛选
+                <SlidersHorizontal className="w-4 h-4" />{t("res_filter")}
               </span>
 
               <div className="flex flex-wrap gap-1.5">
@@ -329,7 +350,9 @@ function ResultsContent() {
                       filterPlatform === p
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}>
-                    {p === "all" ? `全部 (${allProducts.length})` : `${PLATFORM_LABELS[p]} (${platformCounts[p] || 0})`}
+                    {p === "all"
+                      ? `${t("res_all_platforms")} (${allProducts.length})`
+                      : `${PLATFORM_LABELS[p]} (${platformCounts[p] || 0})`}
                   </button>
                 ))}
               </div>
@@ -338,10 +361,10 @@ function ResultsContent() {
 
               <div className="flex gap-1.5 flex-wrap">
                 {([
-                  { value: "all", label: "全部真实性" },
-                  { value: "high", label: "可信度高" },
-                  { value: "medium", label: "需留意" },
-                  { value: "low", label: "疑似造假" },
+                  { value: "all", label: t("res_authenticity_all") },
+                  { value: "high", label: t("res_authenticity_high") },
+                  { value: "medium", label: t("res_authenticity_medium") },
+                  { value: "low", label: t("res_authenticity_low") },
                 ] as const).map((opt) => (
                   <button key={opt.value} onClick={() => setFilterAuthenticity(opt.value)}
                     className={clsx("px-3 py-1 rounded-lg text-xs font-medium transition-colors border",
@@ -355,14 +378,14 @@ function ResultsContent() {
 
               <div className="ml-auto flex items-center gap-1.5">
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs text-slate-500">排序：</span>
+                <span className="text-xs text-slate-500">{t("res_sort")}</span>
                 <div className="relative">
                   <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
                     className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 pr-6 bg-white text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                    <option value="relevance">最相关</option>
-                    <option value="price_asc">价格：低 → 高</option>
-                    <option value="price_desc">价格：高 → 低</option>
-                    <option value="sales_desc">销量：高 → 低</option>
+                    <option value="relevance">{t("res_sort_relevant")}</option>
+                    <option value="price_asc">{t("res_sort_price_asc")}</option>
+                    <option value="price_desc">{t("res_sort_price_desc")}</option>
+                    <option value="sales_desc">{t("res_sort_sales")}</option>
                   </select>
                   <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -371,7 +394,7 @@ function ResultsContent() {
 
             {selectedIds.length === 1 && (
               <p className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-4">
-                已选 1 件 · 再选 1 件即可对比（最多 4 件）
+                {t("res_select_hint")}
               </p>
             )}
 
@@ -382,26 +405,28 @@ function ResultsContent() {
                   <SearchX className="w-9 h-9 text-slate-400" />
                 </div>
                 <div className="text-center">
-                  <p className="text-lg font-semibold text-slate-700">找不到相关产品</p>
+                  <p className="text-lg font-semibold text-slate-700">{t("res_no_results")}</p>
                   <p className="text-sm text-slate-500 mt-1">
                     {filterPlatform !== "all" || filterAuthenticity !== "all"
-                      ? "目前的筛选条件下没有结果，试试放宽筛选"
-                      : `在已选平台上找不到「${query}」相关的产品`}
+                      ? t("res_no_filter")
+                      : lang === "zh"
+                        ? `在已选平台上找不到「${query}」相关的产品`
+                        : `No results for "${query}" on selected platforms`}
                   </p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 w-full max-w-sm space-y-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">建议</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t("res_tip_title")}</p>
                   {(filterPlatform !== "all" || filterAuthenticity !== "all") && (
                     <button onClick={() => { setFilterPlatform("all"); setFilterAuthenticity("all"); }}
                       className="w-full flex items-center gap-3 p-3 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl text-sm text-slate-700 transition-colors">
-                      <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />清除所有筛选条件
+                      <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />{t("res_clear_filter")}
                     </button>
                   )}
                   <button onClick={() => router.push("/dashboard")}
                     className="w-full flex items-center gap-3 p-3 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl text-sm text-slate-700 transition-colors">
-                    <Search className="w-4 h-4 text-blue-600 shrink-0" />换一个关键词重新搜索
+                    <Search className="w-4 h-4 text-blue-600 shrink-0" />{t("res_new_search")}
                   </button>
-                  <p className="text-xs text-slate-400 pt-1">小贴士：试试更短的词，例如把「竹制菜板」改为「竹砧板」</p>
+                  <p className="text-xs text-slate-400 pt-1">{t("res_tip_text")}</p>
                 </div>
               </div>
             ) : (

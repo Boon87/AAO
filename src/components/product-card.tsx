@@ -4,6 +4,7 @@ import { Star, ShoppingBag, MessageSquare, CheckSquare, Square } from "lucide-re
 import { clsx } from "clsx";
 import { AuthenticityBadge } from "./authenticity-badge";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Product } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/i18n";
 
 interface ProductCardProps {
   product: Product;
@@ -13,6 +14,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, selected, onToggleSelect, selectable }: ProductCardProps) {
+  const { t } = useLanguage();
   return (
     <div
       className={clsx(
@@ -74,13 +76,13 @@ export function ProductCard({ product, selected, onToggleSelect, selectable }: P
           {product.sales > 0 ? (
             <span className="flex items-center gap-1">
               <ShoppingBag className="w-3.5 h-3.5" />
-              {product.sales.toLocaleString()} 销量
+              {product.sales.toLocaleString()} {t("card_sales")}
             </span>
           ) : null}
           {product.reviews > 0 ? (
             <span className="flex items-center gap-1">
               <MessageSquare className="w-3.5 h-3.5" />
-              {product.reviews.toLocaleString()} 评价
+              {product.reviews.toLocaleString()} {t("card_reviews")}
             </span>
           ) : null}
           {product.rating > 0 ? (
@@ -90,12 +92,12 @@ export function ProductCard({ product, selected, onToggleSelect, selectable }: P
             </span>
           ) : null}
           {product.sales === 0 && product.reviews === 0 && product.rating === 0 && (
-            <span className="text-slate-400 italic">暂无销量数据</span>
+            <span className="text-slate-400 italic">{t("card_no_sales")}</span>
           )}
         </div>
 
         {/* Shop name */}
-        <p className="text-xs text-slate-400 truncate">店铺：{product.shopName}</p>
+        <p className="text-xs text-slate-400 truncate">{t("cmp_attr_shop")}：{product.shopName}</p>
 
         {/* Authenticity */}
         <div className="pt-1 border-t border-slate-100">

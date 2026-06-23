@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, BarChart3 } from "lucide-react";
+import { LogOut, BarChart3, Languages } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n";
 
 export function Navbar() {
   const router = useRouter();
+  const { t, lang, toggle } = useLanguage();
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
@@ -41,21 +43,32 @@ export function Navbar() {
             </div>
             <div className="flex flex-col leading-tight">
               <span className="font-bold text-slate-800 text-sm">AAO</span>
-              <span className="text-xs text-slate-500">竞品分析工具</span>
+              <span className="text-xs text-slate-500">{t("nav_tool_name")}</span>
             </div>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Language toggle */}
+            <button
+              onClick={toggle}
+              title={lang === "zh" ? "Switch to English" : "切换为中文"}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              {lang === "zh" ? "EN" : "中文"}
+            </button>
+
             {userName && (
-              <span className="text-sm text-slate-600">
-                你好，<span className="font-medium text-slate-800">{userName}</span>
+              <span className="text-sm text-slate-600 hidden sm:inline">
+                {t("nav_greeting")}，<span className="font-medium text-slate-800">{userName}</span>
               </span>
             )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition-colors"
             >
-              <LogOut className="w-4 h-4" />登出
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">{t("nav_logout")}</span>
             </button>
           </div>
         </div>

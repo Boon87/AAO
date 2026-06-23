@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "AAO 竞品分析工具",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh" className="h-full">
-      <body className="min-h-full flex flex-col bg-slate-50">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-50">
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }
