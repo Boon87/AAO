@@ -15,20 +15,19 @@ import { calculateAuthenticityScore } from "@/lib/authenticity";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 
-// CNY to MYR approximate rate (used for Chinese platforms)
-const CNY_TO_MYR = 0.63;
+const DEFAULT_CNY_RATE = 0.63;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseTaobaoData(raw: any): Product[] {
+function parseTaobaoData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!raw) return [];
   const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!items.length) return [];
-  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
   return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const rawPrice = String(i.price || "0").replace(/[¥,]/g, "");
     const priceCny = parseFloat(rawPrice) || 0;
-    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const price = parseFloat((priceCny * cnyRate).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
     const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: 24, marketAvgPrice: marketAvg });
     return {
@@ -46,15 +45,15 @@ function parseTaobaoData(raw: any): Product[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parsePddData(raw: any): Product[] {
+function parsePddData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!raw) return [];
   const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!items.length) return [];
-  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
   return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const priceCny = parseFloat(i.price) || 0;
-    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const price = parseFloat((priceCny * cnyRate).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9万]/g, "").replace("万", "0000")) || 0;
     const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: 18, marketAvgPrice: marketAvg });
     return {
@@ -72,15 +71,15 @@ function parsePddData(raw: any): Product[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parse1688Data(raw: any): Product[] {
+function parse1688Data(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!raw) return [];
   const items: any[] = raw.items ?? raw.data?.items ?? []; // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!items.length) return [];
-  const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
   return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const priceCny = parseFloat(i.price) || 0;
-    const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
+    const price = parseFloat((priceCny * cnyRate).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
     const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: parseInt(String(i.shopAge)) || 36, marketAvgPrice: marketAvg });
     return {
@@ -246,6 +245,14 @@ function ResultsContent() {
   const [filterAuthenticity, setFilterAuthenticity] = useState<"all" | "high" | "medium" | "low">("all");
   const [newQuery, setNewQuery] = useState(query);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platformsParam.split(",").filter(Boolean));
+  const [cnyRate, setCnyRate] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_CNY_RATE;
+    return parseFloat(localStorage.getItem("aao_cny_rate") || "") || DEFAULT_CNY_RATE;
+  });
+  const [cnyRateInput, setCnyRateInput] = useState<string>(() => {
+    if (typeof window === "undefined") return String(DEFAULT_CNY_RATE);
+    return localStorage.getItem("aao_cny_rate") || String(DEFAULT_CNY_RATE);
+  });
   const [superAnalysisProduct, setSuperAnalysisProduct] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -297,7 +304,7 @@ function ResultsContent() {
       ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 25000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return parseTaobaoData(d as any);
+          return parseTaobaoData(d as any, cnyRate);
         })
       : Promise.resolve([]);
 
@@ -305,7 +312,7 @@ function ResultsContent() {
       ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 25000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return parsePddData(d as any);
+          return parsePddData(d as any, cnyRate);
         })
       : Promise.resolve([]);
 
@@ -313,7 +320,7 @@ function ResultsContent() {
       ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 25000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return parse1688Data(d as any);
+          return parse1688Data(d as any, cnyRate);
         })
       : Promise.resolve([]);
 
@@ -467,6 +474,28 @@ function ResultsContent() {
                 {p.label}
               </button>
             ))}
+            {selectedPlatforms.some(p => ["taobao","pinduoduo","1688"].includes(p)) && (
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200">
+                <span className="text-xs text-slate-500">¥1 =</span>
+                <input
+                  type="number" step="0.001" min="0.1" max="2"
+                  value={cnyRateInput}
+                  onChange={(e) => setCnyRateInput(e.target.value)}
+                  onBlur={() => {
+                    const v = parseFloat(cnyRateInput);
+                    if (v > 0 && v < 10) {
+                      setCnyRate(v);
+                      localStorage.setItem("aao_cny_rate", String(v));
+                    } else {
+                      setCnyRateInput(String(cnyRate));
+                    }
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                  className="w-16 text-xs border border-slate-200 rounded px-1.5 py-1 text-slate-700 focus:outline-none focus:border-blue-400"
+                />
+                <span className="text-xs text-slate-500">RM</span>
+              </div>
+            )}
           </div>
         </div>
 
