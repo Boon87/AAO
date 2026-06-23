@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Clock, TrendingUp, ShoppingCart, X, Camera } from "lucide-react";
+import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
@@ -20,6 +20,8 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada"]);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragIdentifying, setIsDragIdentifying] = useState(false);
   const EXAMPLE_SEARCHES = ["竹砧板", "收纳盒", "浴室置物架", "不锈钢汤锅", "硅胶垫"];
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [todayCount, setTodayCount] = useState<number | null>(null);
@@ -87,8 +89,76 @@ export default function DashboardPage() {
     handleSearch(productName);
   };
 
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
+    if (!file) return;
+    setIsDragIdentifying(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/identify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+      });
+      const data = await res.json();
+      const keyword = data.analysis?.searchKeyword || data.productName;
+      if (keyword) {
+        router.push(`/results?q=${encodeURIComponent(keyword)}&platforms=${selected.join(",")}`);
+      }
+    } catch {}
+    setIsDragIdentifying(false);
+  }, [selected, router]);
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 800;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height / width) * MAX); width = MAX; }
+          else { width = Math.round((width / height) * MAX); height = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+      img.src = url;
+    });
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div
+      className="min-h-screen flex flex-col bg-slate-50 relative"
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {(isDragging || isDragIdentifying) && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-500/10 backdrop-blur-sm border-4 border-dashed border-blue-400 pointer-events-none">
+          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+            {isDragIdentifying ? (
+              <>
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                <p className="text-xl font-bold text-slate-800">AI 正在识别产品…</p>
+              </>
+            ) : (
+              <>
+                <ImageIcon className="w-12 h-12 text-blue-500" />
+                <p className="text-xl font-bold text-slate-800">松开以识别产品</p>
+                <p className="text-sm text-slate-500">支持 JPG、PNG、WEBP 图片</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <Navbar />
 
       {showImageModal && (
