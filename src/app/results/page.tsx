@@ -247,6 +247,29 @@ function ResultsContent() {
 
   const allProducts = data?.products ?? [];
 
+  // AI Smart Pick: weighted score (credibility 40% + price value 30% + sales 30%)
+  const aiTopPicks = (() => {
+    if (allProducts.length < 2) return [];
+    const maxPrice = Math.max(...allProducts.map(p => p.price));
+    const minPrice = Math.min(...allProducts.map(p => p.price));
+    const maxSales = Math.max(...allProducts.map(p => p.sales));
+    const priceRange = maxPrice - minPrice || 1;
+    return allProducts
+      .map(p => {
+        const credScore  = p.authenticityScore;
+        const priceScore = maxPrice > 0 ? ((maxPrice - p.price) / priceRange) * 100 : 50;
+        const salesScore = maxSales > 0 ? (p.sales / maxSales) * 100 : 0;
+        const total = credScore * 0.4 + priceScore * 0.3 + salesScore * 0.3;
+        const tag = credScore >= 70 && priceScore >= 60 ? "综合最优" :
+                    credScore >= 75 ? "可信度最高" :
+                    priceScore >= 80 ? "性价比最高" :
+                    salesScore >= 80 ? "销量最高" : "推荐";
+        return { ...p, aiScore: Math.round(total), aiTag: tag };
+      })
+      .sort((a, b) => b.aiScore - a.aiScore)
+      .slice(0, 4);
+  })();
+
   const filtered = allProducts
     .filter((p) => filterPlatform === "all" || p.platform === filterPlatform)
     .filter((p) => filterAuthenticity === "all" || p.authenticityLevel === filterAuthenticity)
@@ -426,6 +449,57 @@ function ResultsContent() {
               <p className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-4">
                 {t("res_select_hint")}
               </p>
+            )}
+
+            {/* AI Smart Pick */}
+            {aiTopPicks.length >= 2 && (
+              <div className="mb-6 bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-yellow-400 text-base">🤖</span>
+                  <span className="font-bold text-white text-sm">AI 智能选品推荐</span>
+                  <span className="text-xs text-slate-400 ml-1">综合可信度 · 价格 · 销量 四款最优</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {aiTopPicks.map((product, i) => {
+                    const tagColors: Record<string, string> = {
+                      "综合最优":   "bg-yellow-400 text-yellow-900",
+                      "可信度最高": "bg-green-400 text-green-900",
+                      "性价比最高": "bg-blue-400 text-blue-900",
+                      "销量最高":   "bg-purple-400 text-purple-900",
+                      "推荐":       "bg-slate-400 text-slate-900",
+                    };
+                    const rankLabel = ["🥇", "🥈", "🥉", "4️⃣"][i];
+                    return (
+                      <div key={product.id} className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-3 cursor-pointer relative"
+                        onClick={() => setSuperAnalysisProduct(product)}>
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-base">{rankLabel}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[product.aiTag] || tagColors["推荐"]}`}>
+                            {product.aiTag}
+                          </span>
+                        </div>
+                        {product.imageUrl && (
+                          <img src={product.imageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-2" />
+                        )}
+                        <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-yellow-300 font-bold text-sm">RM {product.price}</span>
+                          <span className="text-slate-400 text-xs">评分 {product.aiScore}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            product.authenticityLevel === "high" ? "bg-green-900/50 text-green-300" :
+                            product.authenticityLevel === "medium" ? "bg-yellow-900/50 text-yellow-300" :
+                            "bg-red-900/50 text-red-300"}`}>
+                            可信 {product.authenticityScore}分
+                          </span>
+                          {product.sales > 0 && <span className="text-slate-400 text-xs">{product.sales}销量</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* No results */}
