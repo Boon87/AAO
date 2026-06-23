@@ -121,6 +121,18 @@ Return ONLY valid JSON (no markdown, no explanation):
       "brand_potential": 0-100,
       "trend_score": 0-100
     }
+  },
+  "supplier_credibility": {
+    "company_authenticity": { "score": 0-20, "max": 20, "notes": "based on shop completeness and account verification signals" },
+    "business_history": { "score": 0-15, "max": 15, "notes": "based on shop age (${product.shopAge} months) and sales track record" },
+    "online_reputation": { "score": 0-20, "max": 20, "notes": "based on platform rating (${product.rating}/5) and review count (${product.reviews})" },
+    "product_authenticity": { "score": 0-15, "max": 15, "notes": "based on image quality, description completeness, price vs market" },
+    "business_integrity": { "score": 0-15, "max": 15, "notes": "based on pricing patterns, sales behavior, review authenticity" },
+    "fraud_risk_deductions": { "score": 0-15, "max": 15, "deducted_flags": ["list each red flag that caused deduction, -3 each"], "notes": "flags: ultra-low price, no video verify, no docs, abnormal contact, fake reviews, unusual payment" },
+    "total": 0-100,
+    "grade": "A+|A|B|C|D|E",
+    "conclusion": "值得合作|建议进一步调查|高风险商家",
+    "conclusion_detail": "1-2 sentences in Chinese explaining key deductions and risks"
   }
 }`;
 
@@ -130,7 +142,7 @@ Return ONLY valid JSON (no markdown, no explanation):
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+        generationConfig: { maxOutputTokens: 3000, temperature: 0.2 },
       }),
     });
 
