@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
@@ -8,12 +7,6 @@ export async function POST(request: NextRequest) {
     const { product, marketAvgPrice, allPrices } = await request.json();
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return NextResponse.json({ error: "未配置 AI" }, { status: 500 });
-
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
-    });
 
     const prompt = `You are AI SUPER BUYER V2.0 — a world-class procurement director with 25+ years experience in international sourcing, e-commerce, fraud detection, and supply chain auditing.
 
@@ -130,8 +123,25 @@ Return ONLY valid JSON (no markdown, no explanation):
   }
 }`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    // Use REST API directly (avoids SDK v1beta issues with newer API key format)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error("[super-analyze] Gemini HTTP error:", res.status, errBody.slice(0, 300));
+      return NextResponse.json({ error: `Gemini ${res.status}: ${errBody.slice(0, 100)}` }, { status: 500 });
+    }
+
+    const json = await res.json();
+    const text = (json.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 
     // Strip markdown fences and parse JSON
     const cleaned = text.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
