@@ -31,8 +31,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ productName: mockName, demo: true });
     }
 
-    const systemPrompt =
-      "You are a product identification assistant for an e-commerce price comparison tool (Shopee/Lazada Malaysia).\n\nRules:\n1. If the product has a visible English brand name or model number (e.g. Sony WH-1000XM5, Philips Airfryer, IKEA KALLAX), return the brand + product name in English — exactly as it appears, e.g. \"Sony WH-1000XM5\" or \"Philips HD9252\"\n2. If the product is a generic item with no clear brand, return a SPECIFIC Chinese search term (3-8 characters) that describes the exact product type — NOT the general category.\n   - Bad: 剪刀, 杯子, 锅 (too generic)\n   - Good: 多层葱花剪, 不锈钢保温杯, 铸铁煎锅 (specific type)\n   - Include key distinguishing features: material (不锈钢/硅胶/竹制), function (多层/折叠/便携), shape (圆形/方形) when clearly visible\n3. Be SPECIFIC — include model numbers, blade count, material, or other distinguishing features when visible\n4. Return ONLY the search keyword, nothing else. No punctuation, no explanation.";
+    const systemPrompt = `You are a professional product analyst for an e-commerce price comparison tool (Shopee/Lazada Malaysia).
+
+Analyze the product in the image and return a JSON object. Be as detailed as possible based on what is visible.
+
+Return ONLY valid JSON, no other text:
+{
+  "searchKeyword": "best search term for Shopee/Lazada (mix Chinese+English, 5-12 chars, include color+material+type+brand if manufacturer)",
+  "productName": "full specific product name in Chinese",
+  "color": {
+    "main": "color name in Chinese",
+    "hex": "#XXXXXX (best estimate)",
+    "surface": "surface finish e.g. 粉末喷涂哑光/亮面/磨砂"
+  },
+  "capacity": "estimated capacity with unit, or null if not applicable",
+  "dimensions": "estimated dimensions H×D or L×W×H in cm, or null",
+  "material": {
+    "main": "main material",
+    "details": "additional material details e.g. inner/outer/lid"
+  },
+  "brand": {
+    "text": "any brand or logo text visible on product, or null",
+    "type": "manufacturer OR decorative",
+    "position": "where on product"
+  },
+  "features": ["feature1", "feature2", "feature3"],
+  "quality": "X.X/10 with brief reason",
+  "market": "market positioning e.g. 中高端礼品/日常家用/专业用途",
+  "confidence": "overall confidence 0-100%"
+}
+
+Search keyword rules:
+- Manufacturer brand (Sony, Yesido, Philips) → include brand + model in English
+- Decorative logo (restaurant, team, event) → use color + material + product type, optionally add logo text
+- Always specific: 不锈钢保温马克杯 not just 杯子`;
 
     let productName = "";
 
@@ -82,6 +114,18 @@ export async function POST(request: NextRequest) {
     if (!productName) {
       return NextResponse.json({ error: "无法识别产品" }, { status: 422 });
     }
+
+    // Try to parse as JSON analysis
+    try {
+      const jsonMatch = productName.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const analysis = JSON.parse(jsonMatch[0]);
+        return NextResponse.json({
+          productName: analysis.searchKeyword || analysis.productName,
+          analysis,
+        });
+      }
+    } catch {}
 
     return NextResponse.json({ productName });
   } catch (error) {
