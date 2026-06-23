@@ -143,23 +143,12 @@ export function SuperAnalysisModal({ product, marketAvgPrice, allPrices, onClose
 ${(() => {
   const c = a?.supplier_credibility as Record<string,unknown>;
   if (!c) return "";
-  const rows = [
-    ["公司真实性", "company_authenticity", 20],
-    ["经营历史", "business_history", 15],
-    ["网络信誉", "online_reputation", 20],
-    ["产品真实性", "product_authenticity", 15],
-    ["商业诚信", "business_integrity", 15],
-    ["诈骗风险评分", "fraud_risk_deductions", 15],
-  ] as [string, string, number][];
   return `<table>
-  <tr><th colspan="3">商家信誉审核报告 — 等级: ${c.grade ?? "?"} (${c.total ?? 0}/100分)</th></tr>
-  <tr><th>评分项目</th><th>得分</th><th>备注</th></tr>
-  ${rows.map(([label, key, max]) => {
-    const item = c[key] as Record<string,unknown> || {};
-    const flags = (item.deducted_flags as string[] || []).join(", ");
-    return `<tr><td>${label} (满分${max})</td><td>${item.score ?? "—"}/${max}</td><td>${item.notes ?? ""}${flags ? " ⚠ " + flags : ""}</td></tr>`;
-  }).join("")}
-  <tr><td colspan="2"><strong>结论</strong></td><td><strong>${c.conclusion ?? ""}</strong>: ${c.conclusion_detail ?? ""}</td></tr>
+  <tr><th colspan="2">商家信誉审核报告 — ${c.grade ?? "?"}级 (${c.score ?? 0}/100分) — ${c.conclusion ?? ""}</th></tr>
+  <tr><td style="width:30%"><strong>专业评价</strong></td><td>${c.assessment ?? ""}</td></tr>
+  <tr><td><strong>优势</strong></td><td>${(c.strengths as string[] || []).map(s => "✓ " + s).join("<br>")}</td></tr>
+  <tr><td><strong>风险</strong></td><td>${(c.risks as string[] || []).map(r => "⚠ " + r).join("<br>")}</td></tr>
+  <tr><td><strong>建议</strong></td><td>${c.recommendation ?? ""}</td></tr>
 </table>`;
 })()}
 <p style="color:#94a3b8;font-size:11px;margin-top:32px;">由 AAO 竞品分析工具 AI SUPER BUYER V2.0 生成 · ${new Date().toLocaleDateString("zh-MY")}</p>
@@ -506,69 +495,65 @@ ${(() => {
                 const c = a.supplier_credibility as Record<string, unknown>;
                 if (!c) return null;
                 const grade = c.grade as string || "C";
-                const total = c.total as number || 0;
+                const score = c.score as number || 0;
                 const conclusion = c.conclusion as string || "";
-                const gradeColors: Record<string, { bg: string; text: string; border: string }> = {
-                  "A+": { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
-                  "A":  { bg: "bg-green-50",   text: "text-green-700",   border: "border-green-300"   },
-                  "B":  { bg: "bg-blue-50",     text: "text-blue-700",   border: "border-blue-300"    },
-                  "C":  { bg: "bg-yellow-50",   text: "text-yellow-700", border: "border-yellow-300"  },
-                  "D":  { bg: "bg-orange-50",   text: "text-orange-700", border: "border-orange-300"  },
-                  "E":  { bg: "bg-red-50",      text: "text-red-700",    border: "border-red-300"     },
+                const gradeColors: Record<string, { bg: string; text: string; border: string; badge: string }> = {
+                  "A+": { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300", badge: "bg-emerald-600" },
+                  "A":  { bg: "bg-green-50",   text: "text-green-700",   border: "border-green-300",   badge: "bg-green-600"   },
+                  "B":  { bg: "bg-blue-50",     text: "text-blue-700",   border: "border-blue-300",    badge: "bg-blue-600"    },
+                  "C":  { bg: "bg-yellow-50",   text: "text-yellow-700", border: "border-yellow-300",  badge: "bg-yellow-600"  },
+                  "D":  { bg: "bg-orange-50",   text: "text-orange-700", border: "border-orange-300",  badge: "bg-orange-600"  },
+                  "E":  { bg: "bg-red-50",      text: "text-red-700",    border: "border-red-300",     badge: "bg-red-600"     },
                 };
                 const gc = gradeColors[grade] || gradeColors["C"];
                 const conclusionIcon = conclusion.includes("值得合作") ? "✅" : conclusion.includes("高风险") ? "🚨" : "⚠️";
-                const rows = [
-                  { label: "公司真实性", key: "company_authenticity", max: 20 },
-                  { label: "经营历史",   key: "business_history",     max: 15 },
-                  { label: "网络信誉",   key: "online_reputation",    max: 20 },
-                  { label: "产品真实性", key: "product_authenticity", max: 15 },
-                  { label: "商业诚信",   key: "business_integrity",   max: 15 },
-                  { label: "诈骗风险",   key: "fraud_risk_deductions", max: 15 },
-                ];
+                const barColor = score >= 80 ? "bg-emerald-500" : score >= 70 ? "bg-blue-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500";
                 return (
-                  <div className={`rounded-xl border-2 ${gc.border} ${gc.bg} p-4`}>
-                    <div className="flex items-center justify-between mb-3">
+                  <div className={`rounded-xl border-2 ${gc.border} ${gc.bg} p-5`}>
+                    {/* Header row */}
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <Shield className={`w-4 h-4 ${gc.text}`} />
                         <span className={`font-bold text-sm ${gc.text}`}>商家信誉审核报告</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-2xl font-black ${gc.text}`}>{grade}</span>
-                        <span className="text-xs text-slate-500">{total}/100分</span>
+                        <span className={`text-white text-sm font-bold px-3 py-1 rounded-full ${gc.badge}`}>{grade}级</span>
+                        <span className={`text-2xl font-black ${gc.text}`}>{score}<span className="text-sm font-normal text-slate-400">/100</span></span>
                       </div>
                     </div>
 
-                    <div className="space-y-2 mb-3">
-                      {rows.map(row => {
-                        const item = c[row.key] as Record<string, unknown> || {};
-                        const score = item.score as number ?? 0;
-                        const pct = Math.round((score / row.max) * 100);
-                        const barColor = pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-yellow-500" : "bg-red-500";
-                        return (
-                          <div key={row.key}>
-                            <div className="flex items-center justify-between text-xs mb-0.5">
-                              <span className="text-slate-600">{row.label}</span>
-                              <span className="font-bold text-slate-700">{score}/{row.max}</span>
-                            </div>
-                            <div className="h-1.5 bg-white/70 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-                            </div>
-                            {(item.deducted_flags as string[] || []).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(item.deducted_flags as string[]).map((f, i) => (
-                                  <span key={i} className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded">⚠ {f}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                    {/* Score bar */}
+                    <div className="h-2 bg-white/70 rounded-full overflow-hidden mb-4">
+                      <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score}%` }} />
                     </div>
 
+                    {/* Professional assessment */}
+                    <p className="text-sm text-slate-700 leading-relaxed mb-4">{c.assessment as string}</p>
+
+                    {/* Strengths & Risks */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white/60 rounded-lg p-3">
+                        <p className="text-xs font-bold text-green-700 mb-2">✓ 优势</p>
+                        <div className="space-y-1">
+                          {(c.strengths as string[] || []).map((s, i) => (
+                            <p key={i} className="text-xs text-slate-600">{s}</p>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-white/60 rounded-lg p-3">
+                        <p className="text-xs font-bold text-red-700 mb-2">⚠ 风险</p>
+                        <div className="space-y-1">
+                          {(c.risks as string[] || []).map((r, i) => (
+                            <p key={i} className="text-xs text-slate-600">{r}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Conclusion */}
                     <div className="border-t border-white/50 pt-3">
                       <p className="font-bold text-sm mb-1">{conclusionIcon} {conclusion}</p>
-                      <p className="text-xs text-slate-600 leading-relaxed">{c.conclusion_detail as string}</p>
+                      <p className="text-xs text-slate-600 leading-relaxed">{c.recommendation as string}</p>
                     </div>
                   </div>
                 );

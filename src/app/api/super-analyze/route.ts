@@ -123,18 +123,25 @@ Return ONLY valid JSON (no markdown, no explanation):
     }
   },
   "supplier_credibility": {
-    "company_authenticity": { "score": 0-20, "max": 20, "notes": "based on shop completeness and account verification signals" },
-    "business_history": { "score": 0-15, "max": 15, "notes": "based on shop age (${product.shopAge} months) and sales track record" },
-    "online_reputation": { "score": 0-20, "max": 20, "notes": "based on platform rating (${product.rating}/5) and review count (${product.reviews})" },
-    "product_authenticity": { "score": 0-15, "max": 15, "notes": "based on image quality, description completeness, price vs market" },
-    "business_integrity": { "score": 0-15, "max": 15, "notes": "based on pricing patterns, sales behavior, review authenticity" },
-    "fraud_risk_deductions": { "score": 0-15, "max": 15, "deducted_flags": ["list each red flag that caused deduction, -3 each"], "notes": "flags: ultra-low price, no video verify, no docs, abnormal contact, fake reviews, unusual payment" },
-    "total": 0-100,
+    "score": 0-100,
     "grade": "A+|A|B|C|D|E",
     "conclusion": "值得合作|建议进一步调查|高风险商家",
-    "conclusion_detail": "1-2 sentences in Chinese explaining key deductions and risks"
+    "assessment": "3-4 sentences comprehensive professional evaluation in Chinese covering all 6 dimensions",
+    "strengths": ["specific positive point 1 in Chinese", "positive point 2"],
+    "risks": ["specific risk 1 in Chinese", "risk 2"],
+    "recommendation": "1-2 sentences actionable advice in Chinese"
   }
-}`;
+}
+
+SUPPLIER CREDIBILITY SCORING INSTRUCTIONS (internal — do NOT output the breakdown):
+Evaluate using these 6 dimensions to derive the score/grade:
+1. 公司真实性 (max 20): account completeness, verification signals
+2. 经营历史 (max 15): shop age ${product.shopAge} months, track record
+3. 网络信誉 (max 20): rating ${product.rating}/5, ${product.reviews} reviews, authenticity
+4. 产品真实性 (max 15): listing quality, price vs market RM${marketAvgPrice}
+5. 商业诚信 (max 15): pricing patterns, sales behavior anomalies
+6. 诈骗风险 (max 15, deduct 3 per flag): ultra-low price / no verification / fake reviews / abnormal payment / new shop high sales
+Grade: A+(90-100)=值得合作, A(80-89)=值得合作, B(70-79)=建议进一步调查, C(60-69)=建议进一步调查, D(50-59)=高风险商家, E(0-49)=高风险商家`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
     const res = await fetch(url, {
