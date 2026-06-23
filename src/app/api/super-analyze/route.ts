@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
@@ -123,25 +124,44 @@ Return ONLY valid JSON (no markdown, no explanation):
   }
 }`;
 
-    // Use REST API directly (avoids SDK v1beta issues with newer API key format)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
-      }),
-    });
+    let text = "";
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("[super-analyze] Gemini HTTP error:", res.status, errBody.slice(0, 300));
-      return NextResponse.json({ error: `Gemini ${res.status}: ${errBody.slice(0, 100)}` }, { status: 500 });
+    // Try Gemini first (free)
+    if (geminiKey) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          text = (json.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+        } else {
+          const errBody = await res.text();
+          console.warn("[super-analyze] Gemini failed:", res.status, errBody.slice(0, 200));
+        }
+      } catch (e) {
+        console.warn("[super-analyze] Gemini error:", String(e).slice(0, 100));
+      }
     }
 
-    const json = await res.json();
-    const text = (json.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    // Fallback to Claude Haiku if Gemini fails
+    if (!text) {
+      const claudeKey = process.env.ANTHROPIC_API_KEY;
+      if (!claudeKey) return NextResponse.json({ error: "AI 服务暂时不可用，请稍后重试" }, { status: 500 });
+      const client = new Anthropic({ apiKey: claudeKey });
+      const msg = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        messages: [{ role: "user", content: prompt }],
+      });
+      text = (msg.content[0] as { text: string }).text.trim();
+    }
 
     // Strip markdown fences and parse JSON
     const cleaned = text.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
