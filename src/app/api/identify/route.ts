@@ -71,18 +71,25 @@ Return ONLY valid JSON, no other text:
 }
 
 SEARCH KEYWORD RULES — CRITICAL:
-The searchKeyword must ONLY contain product descriptor words. Ask yourself: "Does this word describe WHAT the product IS, or does it describe WHO it belongs to / WHOSE logo is on it?"
+Ask yourself ONE question: "If I search this brand/name on Shopee or Lazada, will I find THIS type of product for sale?"
 
-ALLOWED in searchKeyword: color (红色), material (不锈钢), product type (保温马克杯), product features (双层/带手柄), manufacturer brand + model (Sony WH-1000XM5)
-FORBIDDEN in searchKeyword: restaurant names, café names, bar names, team names, athlete names, celebrity names, place names, event names, university names, company names printed AS LOGOS
+INCLUDE brand name in searchKeyword if:
+→ It's the product's manufacturer (Sony, Philips, Yesido, IKEA, Nike, Adidas)
+→ It's a famous brand whose products are sold on Shopee/Lazada (Starbucks mug, Arsenal jersey, Hello Kitty case, Disney item, NBA team merchandise)
+→ Searching the brand name on Shopee would return the same/similar product
 
-TEST: Could a factory produce this product WITHOUT the logo and it would still be the same product type? If YES → the name is decorative → exclude from searchKeyword.
+EXCLUDE brand name from searchKeyword if:
+→ It's a local restaurant, local café, local bar, local business (their custom merchandise is NOT sold on Shopee)
+→ It's a company's corporate gift / promotional item (not for public sale)
+→ Searching that name on Shopee would return WRONG or UNRELATED products
 
 EXAMPLES:
-- Red stainless mug with "The Kobe Japanese Restaurant" logo → brand.type=decorative → searchKeyword: "红色不锈钢双层保温马克杯带手柄" (NO "Kobe")
-- Black mouse with "Yesido" engraved → brand.type=manufacturer → searchKeyword: "Yesido 黑色有线RGB游戏鼠标"
-- White mug with "Starbucks" → brand.type=decorative (Starbucks doesn't manufacture mugs) → searchKeyword: "白色陶瓷马克杯"
-- Sony WH-1000XM5 headphones → brand.type=manufacturer → searchKeyword: "Sony WH-1000XM5"
+✓ Sony WH-1000XM5 headphones → searchKeyword: "Sony WH-1000XM5" (Sony sells on Shopee)
+✓ Starbucks city mug → searchKeyword: "Starbucks城市马克杯" (Starbucks mugs sold on Shopee)
+✓ Arsenal FC jersey → searchKeyword: "Arsenal足球衣" (team jerseys sold on Shopee)
+✓ Hello Kitty backpack → searchKeyword: "Hello Kitty双肩包" (licensed products on Shopee)
+✗ "The Kobe Japanese Restaurant" mug → searchKeyword: "红色不锈钢双层保温马克杯带手柄" (local restaurant gift, not on Shopee)
+✗ Company X corporate gift mug → searchKeyword: "不锈钢企业礼品保温杯" (custom corporate item)
 - Be specific: 真空双层不锈钢保温马克杯 not just 杯子`;
 
     let productName = "";
