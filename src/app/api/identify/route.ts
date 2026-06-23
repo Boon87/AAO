@@ -70,13 +70,20 @@ Return ONLY valid JSON, no other text:
   "confidence": "XX% — overall identification confidence"
 }
 
-SEARCH KEYWORD RULES (most important):
-1. NEVER include restaurant names, team names, or event names in searchKeyword
-2. Manufacturer brands (Sony, Yesido, Philips, IKEA) → include brand + product type
-3. Decorative/custom logos → use ONLY color + material + product type
-4. Example: red stainless steel mug with "The Kobe Restaurant" logo → searchKeyword: "红色不锈钢保温马克杯带手柄"
-5. Example: Sony headphones → searchKeyword: "Sony WH-1000XM5"
-6. Be specific: 真空双层不锈钢保温马克杯 not just 杯子`;
+SEARCH KEYWORD RULES — CRITICAL:
+The searchKeyword must ONLY contain product descriptor words. Ask yourself: "Does this word describe WHAT the product IS, or does it describe WHO it belongs to / WHOSE logo is on it?"
+
+ALLOWED in searchKeyword: color (红色), material (不锈钢), product type (保温马克杯), product features (双层/带手柄), manufacturer brand + model (Sony WH-1000XM5)
+FORBIDDEN in searchKeyword: restaurant names, café names, bar names, team names, athlete names, celebrity names, place names, event names, university names, company names printed AS LOGOS
+
+TEST: Could a factory produce this product WITHOUT the logo and it would still be the same product type? If YES → the name is decorative → exclude from searchKeyword.
+
+EXAMPLES:
+- Red stainless mug with "The Kobe Japanese Restaurant" logo → brand.type=decorative → searchKeyword: "红色不锈钢双层保温马克杯带手柄" (NO "Kobe")
+- Black mouse with "Yesido" engraved → brand.type=manufacturer → searchKeyword: "Yesido 黑色有线RGB游戏鼠标"
+- White mug with "Starbucks" → brand.type=decorative (Starbucks doesn't manufacture mugs) → searchKeyword: "白色陶瓷马克杯"
+- Sony WH-1000XM5 headphones → brand.type=manufacturer → searchKeyword: "Sony WH-1000XM5"
+- Be specific: 真空双层不锈钢保温马克杯 not just 杯子`;
 
     let productName = "";
 
