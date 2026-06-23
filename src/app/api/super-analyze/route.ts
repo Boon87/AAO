@@ -10,8 +10,10 @@ export async function POST(request: NextRequest) {
     if (!geminiKey) return NextResponse.json({ error: "未配置 AI" }, { status: 500 });
 
     const genAI = new GoogleGenerativeAI(geminiKey);
-    // Try gemini-2.0-flash first, fall back to gemini-1.5-flash
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+    });
 
     const prompt = `You are AI SUPER BUYER V2.0 — a world-class procurement director with 25+ years experience in international sourcing, e-commerce, fraud detection, and supply chain auditing.
 
@@ -128,15 +130,7 @@ Return ONLY valid JSON (no markdown, no explanation):
   }
 }`;
 
-    let result;
-    try {
-      result = await model.generateContent(prompt);
-    } catch (e1) {
-      console.error("[super-analyze] gemini-2.0-flash failed:", String(e1));
-      // Fallback to gemini-1.5-flash
-      const model2 = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      result = await model2.generateContent(prompt);
-    }
+    const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
     // Strip markdown fences and parse JSON
