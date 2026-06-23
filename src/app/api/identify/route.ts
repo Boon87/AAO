@@ -36,8 +36,24 @@ export async function POST(request: NextRequest) {
 
     let productName = "";
 
-    // Try Claude first, fall back to Gemini if unavailable/quota exceeded
-    try {
+    // Try Gemini first (free), fall back to Claude if Gemini fails
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent([
+          systemPrompt + "\n\nWhat product is this? Return only the search keyword.",
+          { inlineData: { mimeType: mimeType as string, data: imageBase64 } },
+        ]);
+        productName = result.response.text().trim();
+      } catch {
+        // Gemini failed, fall through to Claude
+      }
+    }
+
+    // Fall back to Claude if Gemini didn't return a result
+    if (!productName && apiKey) {
       const client = new Anthropic({ apiKey });
       const message = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
@@ -61,25 +77,6 @@ export async function POST(request: NextRequest) {
         ],
       });
       productName = message.content[0].type === "text" ? message.content[0].text.trim() : "";
-    } catch (claudeError: unknown) {
-      // Fall back to Gemini on billing/auth errors
-      const isQuotaError = claudeError instanceof Error &&
-        (claudeError.message.includes("credit") || claudeError.message.includes("billing") ||
-         claudeError.message.includes("quota") || claudeError.message.includes("529") ||
-         (claudeError as { status?: number }).status === 529 || (claudeError as { status?: number }).status === 402);
-
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (geminiKey && (isQuotaError || !apiKey)) {
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent([
-          systemPrompt + "\n\nWhat product is this? Return only the search keyword.",
-          { inlineData: { mimeType: mimeType as string, data: imageBase64 } },
-        ]);
-        productName = result.response.text().trim();
-      } else {
-        throw claudeError;
-      }
     }
 
     if (!productName) {
