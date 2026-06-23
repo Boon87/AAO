@@ -141,17 +141,30 @@ EXAMPLES:
       return NextResponse.json({ error: "无法识别产品" }, { status: 422 });
     }
 
-    // Try to parse as JSON analysis
-    try {
-      const jsonMatch = productName.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const analysis = JSON.parse(jsonMatch[0]);
-        return NextResponse.json({
-          productName: analysis.searchKeyword || analysis.productName,
-          analysis,
-        });
-      }
-    } catch {}
+    // Parse JSON analysis — handle markdown fences, extra text, etc.
+    const parseAnalysis = (raw: string) => {
+      // Strip markdown code fences: ```json ... ``` or ``` ... ```
+      const stripped = raw.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
+      // Try direct parse
+      try { return JSON.parse(stripped); } catch {}
+      // Try extract first {...} block
+      const m = stripped.match(/\{[\s\S]*\}/);
+      if (m) { try { return JSON.parse(m[0]); } catch {} }
+      return null;
+    };
+
+    const analysis = parseAnalysis(productName);
+    if (analysis?.searchKeyword || analysis?.productName) {
+      return NextResponse.json({
+        productName: analysis.searchKeyword || analysis.productName,
+        analysis,
+      });
+    }
+
+    // If productName looks like raw JSON or garbage, return error
+    if (productName.includes('"searchKeyword"') || productName.startsWith("{")) {
+      return NextResponse.json({ error: "无法识别产品" }, { status: 422 });
+    }
 
     return NextResponse.json({ productName });
   } catch (error) {
