@@ -91,8 +91,12 @@ function parseShopeeData(data: any): Product[] {
     const imageUrl = imageHash
       ? `https://down-my.img.susercontent.com/file/${imageHash}_tn.webp`
       : "https://placehold.co/200x200/f0f9ff/1e40af?text=Shopee";
+    const shopName = b._shop_name || b.username || "Shopee 卖家";
+    const shopAge = b._shop_ctime
+      ? Math.floor((Date.now() / 1000 - b._shop_ctime) / (30 * 24 * 3600))
+      : 12;
     const { score, level, flags } = calculateAuthenticityScore({
-      sales, reviews, price, shopAge: 12, marketAvgPrice: marketAvg,
+      sales, reviews, price, shopAge, marketAvgPrice: marketAvg,
     });
     return {
       id: `shopee-${b.itemid}`,
@@ -100,8 +104,8 @@ function parseShopeeData(data: any): Product[] {
       price, sales, reviews, rating,
       originalPrice: originalPrice && originalPrice > price ? originalPrice : undefined,
       platform: "shopee",
-      shopName: b.shop_location ?? "Shopee 卖家",
-      shopAge: 12, imageUrl,
+      shopName,
+      shopAge, imageUrl,
       url: `https://shopee.com.my/product/${b.shopid}/${b.itemid}`,
       authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
     };
