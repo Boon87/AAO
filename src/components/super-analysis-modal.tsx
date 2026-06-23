@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2, Shield, TrendingUp, DollarSign, AlertTriangle, Zap, BarChart2, Target, Package, Clock, Award } from "lucide-react";
+import { X, Loader2, Shield, TrendingUp, DollarSign, AlertTriangle, Zap, BarChart2, Target, Package, Clock, Award, Download, ExternalLink } from "lucide-react";
 
 interface Product {
   name: string; price: number; sales: number; reviews: number;
   rating: number; shopName: string; shopAge: number; platform: string;
+  imageUrl?: string; url?: string;
 }
 
 interface SuperAnalysisModalProps {
@@ -80,6 +81,71 @@ export function SuperAnalysisModal({ product, marketAvgPrice, allPrices, onClose
 
   const a = analysis as Record<string, Record<string, unknown>> | null;
 
+  const exportPDF = () => {
+    const grade = (a?.layer10_decision as Record<string, unknown>)?.grade as string || "?";
+    const score = (a?.layer10_decision as Record<string, unknown>)?.total_score as number || 0;
+    const summary = (a?.layer10_decision as Record<string, unknown>)?.summary as string || "";
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>AI Super Buyer 报告 — ${product.name}</title>
+<style>
+  body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #1e293b; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+  .grade { display: inline-block; font-size: 48px; font-weight: 900; padding: 8px 24px; border-radius: 12px; background: #f1f5f9; margin-bottom: 16px; }
+  .summary { background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px; line-height: 1.7; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th { text-align: left; background: #1e293b; color: white; padding: 10px 12px; font-size: 13px; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  img.product-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .green { background: #dcfce7; color: #166534; }
+  .red { background: #fee2e2; color: #991b1b; }
+  @media print { button { display: none; } }
+</style>
+</head><body>
+<div class="header">
+  ${product.imageUrl ? `<img class="product-img" src="${product.imageUrl}" crossorigin="anonymous" />` : ""}
+  <div>
+    <h1>AI SUPER BUYER V2.0 分析报告</h1>
+    <div class="sub">${product.name} &nbsp;|&nbsp; ${product.platform.toUpperCase()} &nbsp;|&nbsp; RM ${product.price} &nbsp;|&nbsp; 生成时间: ${new Date().toLocaleString("zh-MY")}</div>
+  </div>
+</div>
+<div class="grade">${grade}级 — ${score}/100分</div>
+<div class="summary">${summary}</div>
+<table>
+  <tr><th colspan="2">产品基本信息</th></tr>
+  <tr><td>商品名称</td><td>${product.name}</td></tr>
+  <tr><td>平台</td><td>${product.platform}</td></tr>
+  <tr><td>售价</td><td>RM ${product.price}</td></tr>
+  <tr><td>销量</td><td>${product.sales}</td></tr>
+  <tr><td>评价数</td><td>${product.reviews}</td></tr>
+  <tr><td>评分</td><td>${product.rating}/5</td></tr>
+  <tr><td>店铺</td><td>${product.shopName}（开店 ${product.shopAge} 个月）</td></tr>
+  <tr><td>市场均价</td><td>RM ${marketAvgPrice}</td></tr>
+</table>
+<table>
+  <tr><th>分析层级</th><th>评分</th><th>关键信息</th></tr>
+  <tr><td>真实性</td><td>${(a?.layer1_authenticity as Record<string,unknown>)?.score ?? "—"}</td><td>图片风险: ${(a?.layer1_authenticity as Record<string,unknown>)?.image_risk ?? "—"}</td></tr>
+  <tr><td>价格分析</td><td>${(a?.layer2_pricing as Record<string,unknown>)?.score ?? "—"}</td><td>${(a?.layer2_pricing as Record<string,unknown>)?.price_assessment ?? "—"}</td></tr>
+  <tr><td>供应商</td><td>${(a?.layer3_supplier as Record<string,unknown>)?.score ?? "—"}</td><td>${(a?.layer3_supplier as Record<string,unknown>)?.shop_type ?? "—"}</td></tr>
+  <tr><td>诈骗风险</td><td>${(a?.layer4_fraud_risk as Record<string,unknown>)?.risk_level ?? "—"}级</td><td>${(a?.layer4_fraud_risk as Record<string,unknown>)?.risk_label ?? "—"}</td></tr>
+  <tr><td>爆款潜力</td><td>${(a?.layer5_viral_potential as Record<string,unknown>)?.score ?? "—"}</td><td>需求: ${(a?.layer5_viral_potential as Record<string,unknown>)?.demand_level ?? "—"}</td></tr>
+  <tr><td>竞争分析</td><td>难度 ${(a?.layer6_competition as Record<string,unknown>)?.entry_difficulty ?? "—"}/5</td><td>饱和度: ${(a?.layer6_competition as Record<string,unknown>)?.market_saturation ?? "—"}</td></tr>
+  <tr><td>利润分析</td><td>${(a?.layer7_profit as Record<string,unknown>)?.profit_assessment ?? "—"}</td><td>净利率: ${(a?.layer7_profit as Record<string,unknown>)?.estimated_net_margin_pct ?? "—"}%，ROI: ${(a?.layer7_profit as Record<string,unknown>)?.estimated_roi_pct ?? "—"}%</td></tr>
+  <tr><td>OEM/ODM</td><td>${(a?.layer8_oem_odm as Record<string,unknown>)?.score ?? "—"}</td><td>品牌潜力: ${(a?.layer8_oem_odm as Record<string,unknown>)?.brand_potential ?? "—"}</td></tr>
+  <tr><td>趋势预测</td><td>—</td><td>3月: ${(a?.layer9_trend as Record<string,unknown>)?.["3_months"] ?? "—"} / 6月: ${(a?.layer9_trend as Record<string,unknown>)?.["6_months"] ?? "—"} / 12月: ${(a?.layer9_trend as Record<string,unknown>)?.["12_months"] ?? "—"}</td></tr>
+</table>
+<p style="color:#94a3b8;font-size:11px;margin-top:32px;">由 AAO 竞品分析工具 AI SUPER BUYER V2.0 生成 · ${new Date().toLocaleDateString("zh-MY")}</p>
+<script>window.onload = () => window.print();</script>
+</body></html>`);
+    w.document.close();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -87,15 +153,33 @@ export function SuperAnalysisModal({ product, marketAvgPrice, allPrices, onClose
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-900 to-slate-700 shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-yellow-400" />
-              <span className="font-bold text-white text-base">AI SUPER BUYER V2.0</span>
+          <div className="flex items-center gap-3">
+            {product.imageUrl && (
+              <img src={product.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-white/20 shrink-0" />
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-yellow-400" />
+                <span className="font-bold text-white text-base">AI SUPER BUYER V2.0</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{product.name}</p>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{product.name}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white transition-colors">
-            <X className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            {a && (
+              <button onClick={exportPDF} title="导出 PDF 报告"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-yellow-400 transition-colors">
+                <Download className="w-4 h-4" />
+              </button>
+            )}
+            {product.url && product.url !== "#" && (
+              <a href={product.url} target="_blank" rel="noopener noreferrer"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-300 transition-colors">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white transition-colors">
+              <X className="w-4 h-4" />
           </button>
         </div>
 

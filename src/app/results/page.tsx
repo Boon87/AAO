@@ -275,6 +275,8 @@ function ResultsContent() {
             shopName: superAnalysisProduct.shopName || "未知店铺",
             shopAge: superAnalysisProduct.shopAge || 12,
             platform: superAnalysisProduct.platform,
+            imageUrl: superAnalysisProduct.imageUrl,
+            url: superAnalysisProduct.url,
           }}
           marketAvgPrice={data?.marketAvgPrice || superAnalysisProduct.price}
           allPrices={(data?.products || []).map(p => p.price)}
