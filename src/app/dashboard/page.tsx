@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada"]);
   const [showImageModal, setShowImageModal] = useState(false);
+  const EXAMPLE_SEARCHES = ["竹砧板", "收纳盒", "浴室置物架", "不锈钢汤锅", "硅胶垫"];
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [todayCount, setTodayCount] = useState<number | null>(null);
   const [suspiciousCount, setSuspiciousCount] = useState<number | null>(null);
@@ -155,16 +156,16 @@ export default function DashboardPage() {
             <span className="text-sm font-medium text-slate-500">{t("dash_recent")}</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {recentSearches.length > 0 ? (
-              recentSearches.map((term) => (
-                <button key={term} onClick={() => { setQuery(term); handleSearch(term); }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-full text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
-                  <ShoppingCart className="w-3.5 h-3.5" />{term}
-                </button>
-              ))
-            ) : (
-              <span className="text-sm text-slate-400 italic">—</span>
-            )}
+            {(recentSearches.length > 0 ? recentSearches : EXAMPLE_SEARCHES).map((term) => (
+              <button key={term} onClick={() => { setQuery(term); handleSearch(term); }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-colors border ${
+                  recentSearches.length > 0
+                    ? "bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600"
+                    : "bg-slate-50 border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-600"
+                }`}>
+                <ShoppingCart className="w-3.5 h-3.5" />{term}
+              </button>
+            ))}
             <button onClick={() => setShowImageModal(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full text-sm text-blue-600 hover:bg-blue-100 transition-colors">
               <Camera className="w-3.5 h-3.5" />{t("dash_camera_search")}
