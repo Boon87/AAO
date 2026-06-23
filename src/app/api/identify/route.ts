@@ -33,38 +33,50 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = `You are a professional product analyst for an e-commerce price comparison tool (Shopee/Lazada Malaysia).
 
-Analyze the product in the image and return a JSON object. Be as detailed as possible based on what is visible.
+Analyze the product in the image carefully and return a JSON object. Be precise — especially about MATERIAL.
+
+MATERIAL IDENTIFICATION GUIDE (look carefully):
+- Stainless steel (不锈钢): metallic silver rim/base/bottom visible, shiny or powder-coated metal surface, often double-walled, feels heavy
+- Ceramic (陶瓷): matte or glazed finish, thick walls, no metallic parts, chip-prone edges
+- Glass (玻璃): transparent or tinted, see-through
+- Plastic (塑料): lightweight look, seams visible, matte or glossy non-metallic finish
+- Silicone (硅胶): flexible-looking, rubbery texture
+
+Look at the RIM, BOTTOM, and HANDLE closely to identify the true material.
 
 Return ONLY valid JSON, no other text:
 {
-  "searchKeyword": "best search term for Shopee/Lazada (mix Chinese+English, 5-12 chars, include color+material+type+brand if manufacturer)",
+  "searchKeyword": "best Shopee/Lazada search term — color + material + product type (NO decorative logos/restaurant names) e.g. 红色不锈钢保温马克杯",
   "productName": "full specific product name in Chinese",
   "color": {
     "main": "color name in Chinese",
     "hex": "#XXXXXX (best estimate)",
-    "surface": "surface finish e.g. 粉末喷涂哑光/亮面/磨砂"
+    "surface": "surface finish e.g. 粉末喷涂哑光/亮面/磨砂/烤漆"
   },
-  "capacity": "estimated capacity with unit, or null if not applicable",
-  "dimensions": "estimated dimensions H×D or L×W×H in cm, or null",
+  "capacity": "estimated capacity with unit based on visual size comparison, or null",
+  "dimensions": "estimated H×D in cm based on visual scale, or null",
   "material": {
-    "main": "main material",
-    "details": "additional material details e.g. inner/outer/lid"
+    "main": "primary material — be precise: 304不锈钢/316不锈钢/陶瓷/玻璃/硅胶/PP塑料",
+    "details": "e.g. 外层304不锈钢粉末喷涂, 内胆316不锈钢, 杯盖PP+硅胶密封圈"
   },
   "brand": {
-    "text": "any brand or logo text visible on product, or null",
-    "type": "manufacturer OR decorative",
-    "position": "where on product"
+    "text": "any text/logo on product, or null",
+    "type": "manufacturer (Sony/Philips/etc) OR decorative (restaurant/team/event/custom print)",
+    "position": "location on product e.g. 正面中央"
   },
-  "features": ["feature1", "feature2", "feature3"],
-  "quality": "X.X/10 with brief reason",
-  "market": "market positioning e.g. 中高端礼品/日常家用/专业用途",
-  "confidence": "overall confidence 0-100%"
+  "features": ["specific feature 1", "specific feature 2"],
+  "quality": "X.X/10 — brief reason based on visible build quality",
+  "market": "市场定位 e.g. 中高端礼品保温杯/日常家用/专业用途",
+  "confidence": "XX% — overall identification confidence"
 }
 
-Search keyword rules:
-- Manufacturer brand (Sony, Yesido, Philips) → include brand + model in English
-- Decorative logo (restaurant, team, event) → use color + material + product type, optionally add logo text
-- Always specific: 不锈钢保温马克杯 not just 杯子`;
+SEARCH KEYWORD RULES (most important):
+1. NEVER include restaurant names, team names, or event names in searchKeyword
+2. Manufacturer brands (Sony, Yesido, Philips, IKEA) → include brand + product type
+3. Decorative/custom logos → use ONLY color + material + product type
+4. Example: red stainless steel mug with "The Kobe Restaurant" logo → searchKeyword: "红色不锈钢保温马克杯带手柄"
+5. Example: Sony headphones → searchKeyword: "Sony WH-1000XM5"
+6. Be specific: 真空双层不锈钢保温马克杯 not just 杯子`;
 
     let productName = "";
 
@@ -73,7 +85,7 @@ Search keyword rules:
     if (geminiKey) {
       try {
         const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent([
           systemPrompt + "\n\nWhat product is this? Return only the search keyword.",
           { inlineData: { mimeType: mimeType as string, data: imageBase64 } },
