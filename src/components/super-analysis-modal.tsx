@@ -176,7 +176,8 @@ export function SuperAnalysisModal({ product, marketAvgPrice, allPrices, onClose
             )}
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white transition-colors">
               <X className="w-4 h-4" />
-          </button>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto flex-1 p-6">
