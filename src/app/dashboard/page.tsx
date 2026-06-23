@@ -62,9 +62,12 @@ export default function DashboardPage() {
         const seen = new Set<string>();
         const unique: string[] = [];
         for (const row of history) {
-          if (!seen.has(row.query)) {
-            seen.add(row.query);
-            unique.push(row.query);
+          const q = row.query?.trim() || "";
+          // Skip raw JSON / garbage entries
+          if (q.startsWith("{") || q.startsWith("`") || q.includes('"searchKeyword"') || q.length > 60) continue;
+          if (!seen.has(q)) {
+            seen.add(q);
+            unique.push(q);
             if (unique.length >= 5) break;
           }
         }

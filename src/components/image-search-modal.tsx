@@ -105,14 +105,20 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
       const data = await res.json();
       if (res.status === 422 || (res.ok && !data.productName)) { setStep("unrecognized"); return; }
       if (!res.ok) throw new Error(data.error || "识别失败");
-      setIdentified(data.productName);
+      // Clean keyword — strip any JSON artifacts
+      const rawName = data.productName || "";
+      const cleanName = rawName.startsWith("{") || rawName.startsWith("`") || rawName.includes('"searchKeyword"')
+        ? (data.analysis?.searchKeyword || data.analysis?.productName || "")
+        : rawName;
+      if (!cleanName) { setStep("unrecognized"); return; }
+      setIdentified(cleanName);
       if (data.analysis) {
         setAnalysis(data.analysis);
-        setEditKeyword(data.productName);
+        setEditKeyword(cleanName);
         setStep("analysis");
       } else {
         setStep("success");
-        setTimeout(() => { onIdentified(data.productName); onClose(); }, 1500);
+        setTimeout(() => { onIdentified(cleanName); onClose(); }, 1500);
       }
     } catch (err) {
       setErrorMsg(`错误：${err instanceof Error ? err.message : String(err)}`);
