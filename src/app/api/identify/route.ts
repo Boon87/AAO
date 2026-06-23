@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 30;
@@ -30,35 +31,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ productName: mockName, demo: true });
     }
 
-    const client = new Anthropic({ apiKey });
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 50,
-      system:
-        "You are a product identification assistant for an e-commerce price comparison tool (Shopee/Lazada Malaysia).\n\nRules:\n1. If the product has a visible English brand name or model number (e.g. Sony WH-1000XM5, Philips Airfryer, IKEA KALLAX), return the brand + product name in English — exactly as it appears, e.g. \"Sony WH-1000XM5\" or \"Philips HD9252\"\n2. If the product is a generic item with no clear brand, return a SPECIFIC Chinese search term (3-8 characters) that describes the exact product type — NOT the general category.\n   - Bad: 剪刀, 杯子, 锅 (too generic)\n   - Good: 多层葱花剪, 不锈钢保温杯, 铸铁煎锅 (specific type)\n   - Include key distinguishing features: material (不锈钢/硅胶/竹制), function (多层/折叠/便携), shape (圆形/方形) when clearly visible\n3. Be SPECIFIC — include model numbers, blade count, material, or other distinguishing features when visible\n4. Return ONLY the search keyword, nothing else. No punctuation, no explanation.",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-                data: imageBase64,
-              },
-            },
-            {
-              type: "text",
-              text: "What product is this? Return only the search keyword.",
-            },
-          ],
-        },
-      ],
-    });
+    const systemPrompt =
+      "You are a product identification assistant for an e-commerce price comparison tool (Shopee/Lazada Malaysia).\n\nRules:\n1. If the product has a visible English brand name or model number (e.g. Sony WH-1000XM5, Philips Airfryer, IKEA KALLAX), return the brand + product name in English — exactly as it appears, e.g. \"Sony WH-1000XM5\" or \"Philips HD9252\"\n2. If the product is a generic item with no clear brand, return a SPECIFIC Chinese search term (3-8 characters) that describes the exact product type — NOT the general category.\n   - Bad: 剪刀, 杯子, 锅 (too generic)\n   - Good: 多层葱花剪, 不锈钢保温杯, 铸铁煎锅 (specific type)\n   - Include key distinguishing features: material (不锈钢/硅胶/竹制), function (多层/折叠/便携), shape (圆形/方形) when clearly visible\n3. Be SPECIFIC — include model numbers, blade count, material, or other distinguishing features when visible\n4. Return ONLY the search keyword, nothing else. No punctuation, no explanation.";
 
-    const productName =
-      message.content[0].type === "text" ? message.content[0].text.trim() : "";
+    let productName = "";
+
+    // Try Claude first, fall back to Gemini if unavailable/quota exceeded
+    try {
+      const client = new Anthropic({ apiKey });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 50,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                  data: imageBase64,
+                },
+              },
+              { type: "text", text: "What product is this? Return only the search keyword." },
+            ],
+          },
+        ],
+      });
+      productName = message.content[0].type === "text" ? message.content[0].text.trim() : "";
+    } catch (claudeError: unknown) {
+      // Fall back to Gemini on billing/auth errors
+      const isQuotaError = claudeError instanceof Error &&
+        (claudeError.message.includes("credit") || claudeError.message.includes("billing") ||
+         claudeError.message.includes("quota") || claudeError.message.includes("529") ||
+         (claudeError as { status?: number }).status === 529 || (claudeError as { status?: number }).status === 402);
+
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (geminiKey && (isQuotaError || !apiKey)) {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent([
+          systemPrompt + "\n\nWhat product is this? Return only the search keyword.",
+          { inlineData: { mimeType: mimeType as string, data: imageBase64 } },
+        ]);
+        productName = result.response.text().trim();
+      } else {
+        throw claudeError;
+      }
+    }
 
     if (!productName) {
       return NextResponse.json({ error: "无法识别产品" }, { status: 422 });
