@@ -249,9 +249,11 @@ function ResultsContent() {
     if (typeof window === "undefined") return DEFAULT_CNY_RATE;
     return parseFloat(localStorage.getItem("aao_cny_rate") || "") || DEFAULT_CNY_RATE;
   });
+  // Display as RM→CNY (inverse of cnyRate)
   const [cnyRateInput, setCnyRateInput] = useState<string>(() => {
-    if (typeof window === "undefined") return String(DEFAULT_CNY_RATE);
-    return localStorage.getItem("aao_cny_rate") || String(DEFAULT_CNY_RATE);
+    if (typeof window === "undefined") return (1 / DEFAULT_CNY_RATE).toFixed(3);
+    const stored = parseFloat(localStorage.getItem("aao_cny_rate") || "");
+    return stored > 0 ? (1 / stored).toFixed(3) : (1 / DEFAULT_CNY_RATE).toFixed(3);
   });
   const [superAnalysisProduct, setSuperAnalysisProduct] = useState<Product | null>(null);
 
@@ -476,24 +478,25 @@ function ResultsContent() {
             ))}
             {selectedPlatforms.some(p => ["taobao","pinduoduo","1688"].includes(p)) && (
               <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200">
-                <span className="text-xs text-slate-500">¥1 =</span>
+                <span className="text-xs text-slate-500">RM 1 =</span>
                 <input
-                  type="number" step="0.001" min="0.1" max="2"
+                  type="number" step="0.01" min="0.1" max="20"
                   value={cnyRateInput}
                   onChange={(e) => setCnyRateInput(e.target.value)}
                   onBlur={() => {
                     const v = parseFloat(cnyRateInput);
-                    if (v > 0 && v < 10) {
-                      setCnyRate(v);
-                      localStorage.setItem("aao_cny_rate", String(v));
+                    if (v > 0 && v < 20) {
+                      const rate = 1 / v;
+                      setCnyRate(rate);
+                      localStorage.setItem("aao_cny_rate", String(rate));
                     } else {
-                      setCnyRateInput(String(cnyRate));
+                      setCnyRateInput((1 / cnyRate).toFixed(3));
                     }
                   }}
                   onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                   className="w-16 text-xs border border-slate-200 rounded px-1.5 py-1 text-slate-700 focus:outline-none focus:border-blue-400"
                 />
-                <span className="text-xs text-slate-500">RM</span>
+                <span className="text-xs text-slate-500">¥</span>
               </div>
             )}
           </div>
