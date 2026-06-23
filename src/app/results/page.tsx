@@ -26,7 +26,8 @@ function parseTaobaoData(raw: any): Product[] {
   const prices = items.map((i: any) => parseFloat(i.price) * CNY_TO_MYR).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
   return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    const priceCny = parseFloat(i.price) || 0;
+    const rawPrice = String(i.price || "0").replace(/[¥,]/g, "");
+    const priceCny = parseFloat(rawPrice) || 0;
     const price = parseFloat((priceCny * CNY_TO_MYR).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
     const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: 24, marketAvgPrice: marketAvg });
@@ -41,7 +42,7 @@ function parseTaobaoData(raw: any): Product[] {
       url: i.itemUrl?.startsWith("http") ? i.itemUrl : (i.itemUrl ? "https:" + i.itemUrl : "https://www.taobao.com"),
       authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
     };
-  }).filter(p => p.name && p.price > 0);
+  }).filter(p => p.name && p.price > 0 && p.price < 50000);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -647,7 +648,7 @@ function ResultsContent() {
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white text-xs font-medium transition-colors mt-auto">
                             <ExternalLink className="w-3 h-3" />
-                            前往 {product.platform === "shopee" ? "Shopee" : "Lazada"}
+                            前往 {PLATFORM_LABELS[product.platform]}
                           </a>
                         )}
                       </div>
