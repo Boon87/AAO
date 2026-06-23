@@ -247,20 +247,35 @@ function ResultsContent() {
 
   const allProducts = data?.products ?? [];
 
-  // AI Smart Pick: weighted score (credibility 40% + price value 30% + sales 30%)
+  // AI Smart Pick: relevance filter + weighted score (credibility 40% + price 30% + sales 30%)
   const aiTopPicks = (() => {
     if (allProducts.length < 2) return [];
-    const maxPrice = Math.max(...allProducts.map(p => p.price));
-    const minPrice = Math.min(...allProducts.map(p => p.price));
-    const maxSales = Math.max(...allProducts.map(p => p.sales));
+
+    // Build keyword tokens from query (split by spaces, min 2 chars)
+    const tokens = query.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+
+    // A product is relevant if its name contains at least half the query tokens
+    const isRelevant = (name: string) => {
+      if (tokens.length === 0) return true;
+      const lower = name.toLowerCase();
+      const matched = tokens.filter(t => lower.includes(t)).length;
+      return matched >= Math.ceil(tokens.length / 2);
+    };
+
+    const candidates = allProducts.filter(p => isRelevant(p.name));
+    const pool = candidates.length >= 2 ? candidates : allProducts; // fallback to all if too few match
+
+    const maxPrice = Math.max(...pool.map(p => p.price));
+    const minPrice = Math.min(...pool.map(p => p.price));
+    const maxSales = Math.max(...pool.map(p => p.sales));
     const priceRange = maxPrice - minPrice || 1;
-    return allProducts
+    return pool
       .map(p => {
         const credScore  = p.authenticityScore;
         const priceScore = maxPrice > 0 ? ((maxPrice - p.price) / priceRange) * 100 : 50;
         const salesScore = maxSales > 0 ? (p.sales / maxSales) * 100 : 0;
         const total = credScore * 0.4 + priceScore * 0.3 + salesScore * 0.3;
-        const tag = credScore >= 70 && priceScore >= 60 ? "综合最优" :
+        const tag = credScore >= 70 && priceScore >= 60 && salesScore >= 40 ? "综合最优" :
                     credScore >= 75 ? "可信度最高" :
                     priceScore >= 80 ? "性价比最高" :
                     salesScore >= 80 ? "销量最高" : "推荐";
