@@ -36,7 +36,11 @@ function parseLazadaData(rawPayload: any): Product[] {
 
   const data = payload.data ?? payload;
   const items: unknown[] =
-    data?.mods?.listItems ?? data?.data?.resultList ?? data?.listItems ?? [];
+    data?.listItems ??           // nextdata / direct
+    data?.mods?.listItems ??     // embedded script JSON
+    data?.data?.resultList ??    // Lazada AJAX API
+    data?.data?.listItems ??
+    [];
   if (!items.length) return [];
 
   const prices = items
@@ -52,7 +56,9 @@ function parseLazadaData(rawPayload: any): Product[] {
     const reviews = parseInt(raw.review ?? raw.ratingCount ?? "0") || 0;
     const sales = reviews * 8;
     const rating = parseFloat(raw.ratingScore ?? "0") || 0;
-    const imageUrl = raw.image || raw.mainImages?.[0] || "https://placehold.co/200x200/eff6ff/2563eb?text=Lazada";
+    const imageUrl = raw.image || raw.imgUrl || raw.mainImages?.[0] ||
+      raw.sku_base?.img || raw.skuInfos?.[0]?.img || raw.img ||
+      "https://placehold.co/200x200/eff6ff/2563eb?text=Lazada";
     const { score, level, flags } = calculateAuthenticityScore({
       sales, reviews, price, shopAge: 12, marketAvgPrice: marketAvg,
     });
