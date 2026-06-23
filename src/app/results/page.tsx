@@ -119,7 +119,7 @@ function parseShopeeData(data: any): Product[] {
   });
 }
 
-type SortOption = "relevance" | "price_asc" | "price_desc" | "sales_desc";
+type SortOption = "price_asc" | "authenticity_desc" | "sales_desc";
 
 interface SearchData {
   products: Product[];
@@ -159,7 +159,7 @@ function ResultsContent() {
   const [fetchError, setFetchError] = useState("");
   const [extensionMissing, setExtensionMissing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortOption>("relevance");
+  const [sortBy, setSortBy] = useState<SortOption>("price_asc");
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all");
   const [filterAuthenticity, setFilterAuthenticity] = useState<"all" | "high" | "medium" | "low">("all");
   const [newQuery, setNewQuery] = useState(query);
@@ -252,7 +252,7 @@ function ResultsContent() {
     .filter((p) => filterAuthenticity === "all" || p.authenticityLevel === filterAuthenticity)
     .sort((a, b) => {
       if (sortBy === "price_asc") return a.price - b.price;
-      if (sortBy === "price_desc") return b.price - a.price;
+      if (sortBy === "authenticity_desc") return b.authenticityScore - a.authenticityScore;
       if (sortBy === "sales_desc") return b.sales - a.sales;
       return 0;
     });
@@ -413,10 +413,9 @@ function ResultsContent() {
                 <div className="relative">
                   <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
                     className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 pr-6 bg-white text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                    <option value="relevance">{t("res_sort_relevant")}</option>
-                    <option value="price_asc">{t("res_sort_price_asc")}</option>
-                    <option value="price_desc">{t("res_sort_price_desc")}</option>
-                    <option value="sales_desc">{t("res_sort_sales")}</option>
+                    <option value="price_asc">价格从低到高</option>
+                    <option value="authenticity_desc">可信度从高到低</option>
+                    <option value="sales_desc">销量从高到低</option>
                   </select>
                   <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
