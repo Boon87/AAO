@@ -244,6 +244,7 @@ function ResultsContent() {
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all");
   const [filterAuthenticity, setFilterAuthenticity] = useState<"all" | "high" | "medium" | "low">("all");
   const [newQuery, setNewQuery] = useState(query);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platformsParam.split(",").filter(Boolean));
   const [superAnalysisProduct, setSuperAnalysisProduct] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -345,9 +346,15 @@ function ResultsContent() {
     });
   };
 
+  const toggleSearchPlatform = (id: string) => {
+    setSelectedPlatforms(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
   const handleNewSearch = () => {
-    if (!newQuery.trim()) return;
-    router.push(`/results?q=${encodeURIComponent(newQuery.trim())}&platforms=${platformsParam}`);
+    if (!newQuery.trim() || selectedPlatforms.length === 0) return;
+    router.push(`/results?q=${encodeURIComponent(newQuery.trim())}&platforms=${selectedPlatforms.join(",")}`);
   };
 
   const allProducts = data?.products ?? [];
@@ -431,18 +438,35 @@ function ResultsContent() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Top search bar */}
-        <div className="flex gap-2 mb-6">
-          <div className="flex-1 flex gap-2 bg-white border-2 border-slate-200 focus-within:border-blue-500 rounded-xl px-3 py-2 transition-colors">
-            <Search className="w-4 h-4 text-slate-400 self-center shrink-0" />
-            <input value={newQuery} onChange={(e) => setNewQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleNewSearch()}
-              className="flex-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
-              placeholder={t("res_re_search")} />
+        <div className="flex flex-col gap-2 mb-6">
+          <div className="flex gap-2">
+            <div className="flex-1 flex gap-2 bg-white border-2 border-slate-200 focus-within:border-blue-500 rounded-xl px-3 py-2 transition-colors">
+              <Search className="w-4 h-4 text-slate-400 self-center shrink-0" />
+              <input value={newQuery} onChange={(e) => setNewQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleNewSearch()}
+                className="flex-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
+                placeholder={t("res_re_search")} />
+            </div>
+            <button onClick={handleNewSearch} disabled={selectedPlatforms.length === 0}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-sm font-medium px-5 rounded-xl transition-colors">
+              {t("dash_search_btn")}
+            </button>
           </div>
-          <button onClick={handleNewSearch}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 rounded-xl transition-colors">
-            {t("dash_search_btn")}
-          </button>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {[
+              { id: "shopee",    label: "Shopee",  active: "bg-orange-100 text-orange-700 border-orange-300" },
+              { id: "lazada",    label: "Lazada",  active: "bg-blue-100 text-blue-700 border-blue-300" },
+              { id: "taobao",    label: "淘宝",    active: "bg-red-100 text-red-700 border-red-300" },
+              { id: "pinduoduo", label: "拼多多",  active: "bg-green-100 text-green-700 border-green-300" },
+              { id: "1688",      label: "1688",    active: "bg-amber-100 text-amber-700 border-amber-300" },
+            ].map(p => (
+              <button key={p.id} onClick={() => toggleSearchPlatform(p.id)}
+                className={clsx("px-2.5 py-1 rounded-lg text-xs font-medium border transition-all",
+                  selectedPlatforms.includes(p.id) ? p.active : "bg-white text-slate-400 border-slate-200")}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Loading */}
