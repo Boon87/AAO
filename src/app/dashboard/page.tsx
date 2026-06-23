@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isDragIdentifying, setIsDragIdentifying] = useState(false);
+  const dragCounter = useRef(0);
   const EXAMPLE_SEARCHES = ["竹砧板", "收纳盒", "浴室置物架", "不锈钢汤锅", "硅胶垫"];
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [todayCount, setTodayCount] = useState<number | null>(null);
@@ -91,6 +92,7 @@ export default function DashboardPage() {
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current = 0;
     setIsDragging(false);
     const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
     if (!file) return;
@@ -135,8 +137,9 @@ export default function DashboardPage() {
   return (
     <div
       className="min-h-screen flex flex-col bg-slate-50 relative"
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
+      onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragging(true); }}
+      onDragOver={(e) => { e.preventDefault(); }}
+      onDragLeave={() => { dragCounter.current--; if (dragCounter.current <= 0) { dragCounter.current = 0; setIsDragging(false); } }}
       onDrop={handleDrop}
     >
       {/* Drag overlay */}
