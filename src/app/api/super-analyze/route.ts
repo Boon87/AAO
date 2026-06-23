@@ -144,7 +144,11 @@ Return ONLY valid JSON (no markdown, no explanation):
       console.warn("[super-analyze] Gemini failed:", res.status, errBody.slice(0, 150));
       // Fall back to Claude while credits last
       const claudeKey = process.env.ANTHROPIC_API_KEY;
-      if (claudeKey) {
+      if (!claudeKey) {
+        console.error("[super-analyze] No ANTHROPIC_API_KEY in env");
+        return NextResponse.json({ error: "今天 AI 分析次数已用完（1500次/天），明天早上8点恢复" }, { status: 429 });
+      }
+      try {
         const client = new Anthropic({ apiKey: claudeKey });
         const msg = await client.messages.create({
           model: "claude-haiku-4-5-20251001",
@@ -152,8 +156,10 @@ Return ONLY valid JSON (no markdown, no explanation):
           messages: [{ role: "user", content: prompt }],
         });
         text = (msg.content[0] as { text: string }).text.trim();
-      } else {
-        return NextResponse.json({ error: "今天 AI 分析次数已用完（1500次/天），明天早上8点恢复" }, { status: 429 });
+      } catch (claudeErr) {
+        const claudeMsg = claudeErr instanceof Error ? claudeErr.message : String(claudeErr);
+        console.error("[super-analyze] Claude error:", claudeMsg);
+        return NextResponse.json({ error: `Claude: ${claudeMsg.slice(0, 150)}` }, { status: 500 });
       }
     }
 
