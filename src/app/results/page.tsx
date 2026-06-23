@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search, SlidersHorizontal, GitCompare, ArrowUpDown,
-  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle,
+  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle, ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
@@ -452,7 +452,7 @@ function ResultsContent() {
             )}
 
             {/* AI Smart Pick */}
-            {aiTopPicks.length >= 2 && (
+            {aiTopPicks.length >= 1 && (
               <div className="mb-6 bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-yellow-400 text-base">🤖</span>
@@ -470,31 +470,40 @@ function ResultsContent() {
                     };
                     const rankLabel = ["🥇", "🥈", "🥉", "4️⃣"][i];
                     return (
-                      <div key={product.id} className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-3 cursor-pointer relative"
-                        onClick={() => setSuperAnalysisProduct(product)}>
-                        <div className="flex items-start justify-between mb-2">
-                          <span className="text-base">{rankLabel}</span>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[product.aiTag] || tagColors["推荐"]}`}>
-                            {product.aiTag}
-                          </span>
+                      <div key={product.id} className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-3 relative flex flex-col">
+                        <div className="cursor-pointer flex-1" onClick={() => setSuperAnalysisProduct(product)}>
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-base">{rankLabel}</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[product.aiTag] || tagColors["推荐"]}`}>
+                              {product.aiTag}
+                            </span>
+                          </div>
+                          {product.imageUrl && (
+                            <img src={product.imageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-2" />
+                          )}
+                          <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-yellow-300 font-bold text-sm">RM {product.price}</span>
+                            <span className="text-slate-400 text-xs">评分 {product.aiScore}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                              product.authenticityLevel === "high" ? "bg-green-900/50 text-green-300" :
+                              product.authenticityLevel === "medium" ? "bg-yellow-900/50 text-yellow-300" :
+                              "bg-red-900/50 text-red-300"}`}>
+                              可信 {product.authenticityScore}分
+                            </span>
+                            {product.sales > 0 && <span className="text-slate-400 text-xs">{product.sales}销量</span>}
+                          </div>
                         </div>
-                        {product.imageUrl && (
-                          <img src={product.imageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-2" />
+                        {product.url && product.url !== "#" && (
+                          <a href={product.url} target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white text-xs font-medium transition-colors mt-auto">
+                            <ExternalLink className="w-3 h-3" />
+                            前往 {product.platform === "shopee" ? "Shopee" : "Lazada"}
+                          </a>
                         )}
-                        <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-yellow-300 font-bold text-sm">RM {product.price}</span>
-                          <span className="text-slate-400 text-xs">评分 {product.aiScore}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                            product.authenticityLevel === "high" ? "bg-green-900/50 text-green-300" :
-                            product.authenticityLevel === "medium" ? "bg-yellow-900/50 text-yellow-300" :
-                            "bg-red-900/50 text-red-300"}`}>
-                            可信 {product.authenticityScore}分
-                          </span>
-                          {product.sales > 0 && <span className="text-slate-400 text-xs">{product.sales}销量</span>}
-                        </div>
                       </div>
                     );
                   })}
