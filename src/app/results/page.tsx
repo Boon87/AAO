@@ -353,7 +353,7 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const p1688Promise: Promise<Product[]> = platforms.includes("1688")
-      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 25000).then((d) => {
+      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 30000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return parse1688Data(d as any, cnyRate);
