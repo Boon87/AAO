@@ -444,11 +444,15 @@ function ResultsContent() {
       if (query.includes(cn)) { secondaryTerms.push(cn); secondaryTerms.push(...en); }
     }
 
-    // Bigrams as additional primary signals (more specific than single chars)
+    // Chinese trigrams — exclude pure generic modifiers that appear in any product
+    const GENERIC_TRIGRAMS = new Set([
+      "便携式", "大容量", "高颜值", "新款全", "款全自", "健身运", "式健身", "携式健",
+      "多功能", "户外用", "防水防", "耐高温", "高品质", "经济实", "实惠款",
+    ]);
     const chineseOnly = query.replace(/[^一-龥]/g, "");
     for (let i = 0; i < chineseOnly.length - 2; i++) {
       const trigram = chineseOnly.slice(i, i + 3);
-      if (!primaryTerms.includes(trigram)) primaryTerms.push(trigram);
+      if (!primaryTerms.includes(trigram) && !GENERIC_TRIGRAMS.has(trigram)) primaryTerms.push(trigram);
     }
 
     // Spam/irrelevant product blocker
@@ -457,7 +461,7 @@ function ResultsContent() {
     const isRelevant = (name: string) => {
       if (SPAM.test(name)) return false;
       const lower = name.toLowerCase();
-      // Must match at least 1 PRIMARY term to be considered relevant
+      // Must match at least 1 meaningful PRIMARY term (non-generic)
       if (primaryTerms.length > 0) return primaryTerms.some(t => lower.includes(t));
       // If no primary terms extracted, fall back to secondary (handles short queries)
       return secondaryTerms.some(t => lower.includes(t));
