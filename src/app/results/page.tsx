@@ -482,13 +482,20 @@ function ResultsContent() {
     // Spam/irrelevant product blocker
     const SPAM = /\btiktok\b|tok[\s_]data|follower|洗水任务|代充|充值|刷单|magic[\s-]?ball|essential[\s-]?oil/i;
 
+    const cnPrimaryTerms = primaryTerms.filter(t => /[一-龥]/.test(t));
+    const enPrimaryTerms = primaryTerms.filter(t => !/[一-龥]/.test(t));
+
     const isRelevant = (name: string) => {
       if (SPAM.test(name)) return false;
       const lower = name.toLowerCase();
-      // Must match at least 1 meaningful PRIMARY term (non-generic)
-      if (primaryTerms.length > 0) return primaryTerms.some(t => lower.includes(t));
-      // If no primary terms extracted, fall back to secondary (handles short queries)
-      return secondaryTerms.some(t => lower.includes(t));
+      const hasChinese = /[一-龥]/.test(name);
+      if (primaryTerms.length === 0) return secondaryTerms.some(t => lower.includes(t));
+      if (hasChinese && cnPrimaryTerms.length > 0) {
+        // Chinese-name products (1688/Taobao): must match a Chinese product-type term.
+        // English material words like "tritan" alone are not enough — too many unrelated products share the material.
+        return cnPrimaryTerms.some(t => lower.includes(t));
+      }
+      return primaryTerms.some(t => lower.includes(t));
     };
 
     // Strict: only relevant products enter AI picks. No fallback to garbage.
