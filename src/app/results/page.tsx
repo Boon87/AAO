@@ -85,7 +85,7 @@ function parse1688Data(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
     const { score, level, flags } = calculateAuthenticityScore({ sales, reviews: 0, price, shopAge: parseInt(String(i.shopAge)) || 36, marketAvgPrice: marketAvg });
     return {
       id: `1688-${idx}-${Date.now()}`,
-      name: (i.name || i.title || "未知商品").replace(/\s*(标题链接标\+?|复制链接|链接标\+?|标题\+链接)\s*$/g, "").trim(),
+      name: (i.name || i.title || "未知商品").replace(/\s*标题链接[^，。！\n]*$/g, "").replace(/\s*\+链[^，。！\n]*$/g, "").trim(),
       price, sales, reviews: 0, rating: 0,
       platform: "1688",
       shopName: i.shop || "1688供应商",
