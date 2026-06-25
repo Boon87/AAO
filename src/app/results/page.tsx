@@ -450,7 +450,7 @@ function ResultsContent() {
 
   const allProducts = data?.products ?? [];
 
-  // AI Smart Pick: priority order — 1.可信度(50%) 2.价格(30%) 3.销量(20%)
+  // AI Smart Pick: priority order — 0.商品符合度(relevance, dominant) then 1.可信度 2.价格 3.销量
   const aiTopPicks = (() => {
     if (allProducts.length < 2) return [];
 
@@ -515,6 +515,19 @@ function ResultsContent() {
       return primaryTerms.some(t => lower.includes(t));
     };
 
+    // Relevance score = how well the product name matches the search (商品符合度).
+    // More distinct query terms matched → more relevant. Secondary terms add a small bump.
+    const relevanceScore = (name: string) => {
+      const lower = name.toLowerCase();
+      const hasChinese = /[一-龥]/.test(name);
+      const terms = (hasChinese && cnPrimaryTerms.length > 0) ? cnPrimaryTerms : primaryTerms;
+      const uniq = Array.from(new Set(terms));
+      let n = 0;
+      for (const t of uniq) if (t && lower.includes(t)) n++;
+      for (const t of Array.from(new Set(secondaryTerms))) if (t && lower.includes(t)) n += 0.3;
+      return n;
+    };
+
     // Strict: only relevant products enter AI picks. No fallback to garbage.
     const candidates = allProducts.filter(p => p.price >= 3 && isRelevant(p.name));
     if (candidates.length < 2) return [];
@@ -525,16 +538,21 @@ function ResultsContent() {
     const priceRange = maxPrice - minPrice || 1;
     return candidates
       .map(p => {
+        const relScore   = relevanceScore(p.name);
         const credScore  = p.authenticityScore;
         const priceScore = maxPrice > 0 ? ((maxPrice - p.price) / priceRange) * 100 : 50;
         const salesScore = maxSales > 0 ? (p.sales / maxSales) * 100 : 0;
-        const total = credScore * 0.5 + priceScore * 0.3 + salesScore * 0.2;
-        return { ...p, aiScore: Math.round(total), _cred: credScore, _price: priceScore, _sales: salesScore };
+        // Relevance (商品符合) dominates; within the same match level rank by
+        // credibility(可信度) > price(价格) > sales(销量). The blend max is ~100, so
+        // each extra matched term (×200) always outranks a less-relevant product.
+        const blend = credScore * 0.5 + priceScore * 0.3 + salesScore * 0.2;
+        const total = relScore * 200 + blend;
+        return { ...p, aiScore: Math.round(total), _rel: relScore, _cred: credScore, _price: priceScore, _sales: salesScore };
       })
       .sort((a, b) => b.aiScore - a.aiScore)
       .slice(0, 4)
       .map((p, idx) => {
-        const tag = idx === 0 ? "综合最优" :
+        const tag = idx === 0 ? "最符合" :
                     p._cred >= p._price && p._cred >= p._sales ? "可信度最高" :
                     p._price >= p._sales ? "性价比最高" :
                     "销量最高";
@@ -833,7 +851,7 @@ function ResultsContent() {
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-yellow-400 text-base">🤖</span>
                   <span className="font-bold text-white text-sm">AI 智能选品推荐</span>
-                  <span className="text-xs text-slate-400 ml-1">综合可信度 · 价格 · 销量 四款最优</span>
+                  <span className="text-xs text-slate-400 ml-1">商品符合优先 · 可信度 · 价格 · 销量</span>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {aiTopPicks.map((product, i) => {
