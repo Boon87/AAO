@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search, SlidersHorizontal, GitCompare, ArrowUpDown,
-  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle, ExternalLink,
+  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle, ExternalLink, Camera,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ProductCard } from "@/components/product-card";
 import { SuperAnalysisModal } from "@/components/super-analysis-modal";
+import { ImageSearchModal } from "@/components/image-search-modal";
 import { PLATFORM_LABELS, type Platform, type Product } from "@/lib/mock-data";
 import { calculateAuthenticityScore } from "@/lib/authenticity";
 import { createClient } from "@/lib/supabase/client";
@@ -41,7 +42,7 @@ function parseTaobaoData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
       url: i.itemUrl?.startsWith("http") ? i.itemUrl : (i.itemUrl ? "https:" + i.itemUrl : "https://www.taobao.com"),
       authenticityScore: score, authenticityLevel: level, authenticityFlags: flags,
     };
-  }).filter(p => p.name && p.price > 0 && p.price < 50000);
+  }).filter(p => p.name && p.price > 0 && p.price < 8000);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +201,7 @@ function parseShopeeData(data: any): Product[] {
   });
 }
 
-type SortOption = "price_asc" | "authenticity_desc" | "sales_desc";
+type SortOption = "relevance" | "price_asc" | "authenticity_desc" | "sales_desc";
 
 interface SearchData {
   products: Product[];
@@ -240,10 +241,43 @@ function ResultsContent() {
   const [fetchError, setFetchError] = useState("");
   const [extensionMissing, setExtensionMissing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortOption>("price_asc");
+  const [sortBy, setSortBy] = useState<SortOption>("relevance");
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all");
   const [filterAuthenticity, setFilterAuthenticity] = useState<"all" | "high" | "medium" | "low">("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [newQuery, setNewQuery] = useState(query);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [dropFile, setDropFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleImageIdentified = (productName: string) => {
+    setNewQuery(productName);
+    const newUrl = `/results?q=${encodeURIComponent(productName.trim())}&platforms=${platformsParam}`;
+    router.push(newUrl);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setIsDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      setDropFile(file);
+      setShowImageModal(true);
+    }
+  };
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platformsParam.split(",").filter(Boolean));
   const [cnyRate, setCnyRate] = useState<number>(() => {
     if (typeof window === "undefined") return DEFAULT_CNY_RATE;
@@ -364,58 +398,140 @@ function ResultsContent() {
 
   const handleNewSearch = () => {
     if (!newQuery.trim() || selectedPlatforms.length === 0) return;
-    router.push(`/results?q=${encodeURIComponent(newQuery.trim())}&platforms=${selectedPlatforms.join(",")}`);
+    const newUrl = `/results?q=${encodeURIComponent(newQuery.trim())}&platforms=${selectedPlatforms.join(",")}`;
+    const currentUrl = `/results?q=${encodeURIComponent(query)}&platforms=${platformsParam}`;
+    if (newUrl === currentUrl) {
+      router.refresh();
+    } else {
+      router.push(newUrl);
+    }
   };
 
   const allProducts = data?.products ?? [];
 
-  // AI Smart Pick: relevance filter + weighted score (credibility 40% + price 30% + sales 30%)
+  // AI Smart Pick: priority order — 1.可信度(50%) 2.价格(30%) 3.销量(20%)
   const aiTopPicks = (() => {
     if (allProducts.length < 2) return [];
 
-    // Build keyword tokens from query (split by spaces, min 2 chars)
-    const tokens = query.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
-
-    // A product is relevant if its name contains at least half the query tokens
-    const isRelevant = (name: string) => {
-      if (tokens.length === 0) return true;
-      const lower = name.toLowerCase();
-      const matched = tokens.filter(t => lower.includes(t)).length;
-      return matched >= Math.ceil(tokens.length / 2);
+    // Two-tier term system:
+    // PRIMARY = brand names + specific product types (必须命中至少 1 个才算相关)
+    // SECONDARY = generic material/size terms (单独匹配不够)
+    const PRIMARY_CN_EN: Record<string, string[]> = {
+      "史努比": ["snoopy"], "哆啦a梦": ["doraemon"], "小熊维尼": ["winnie", "pooh"],
+      "米菲": ["miffy"], "凯蒂猫": ["hello kitty", "kitty"], "迪士尼": ["disney"],
+      "床上用品": ["bedding"], "四件套": ["4-in-1", "4 in 1", "4pcs", "four piece"],
+      "被套": ["duvet cover", "quilt cover"], "枕套": ["pillowcase"],
+      "床单": ["bed sheet", "fitted sheet"],
+      "马克杯": ["mug"], "搅拌杯": ["shaker cup", "mixing cup"],
+      "蛋白粉": ["protein powder", "protein shaker"],
+      "耳机": ["earphone", "headphone", "earbuds"],
+    };
+    const SECONDARY_CN_EN: Record<string, string[]> = {
+      "卡通": ["cartoon"], "儿童": ["kid", "children", "child"],
+      "棉": ["cotton"], "电动": ["electric"], "充电": ["rechargeable"],
+      "保温": ["insulated", "thermal"], "不锈钢": ["stainless", "steel"],
+      "手提包": ["handbag", "tote"], "背包": ["backpack"],
+      "运动鞋": ["sneaker", "shoe"],
     };
 
-    const candidates = allProducts.filter(p => isRelevant(p.name));
-    const pool = candidates.length >= 2 ? candidates : allProducts; // fallback to all if too few match
+    const primaryTerms: string[] = (query.match(/[a-zA-Z]{4,}/g) || []).map(w => w.toLowerCase());
+    const secondaryTerms: string[] = [];
 
-    const maxPrice = Math.max(...pool.map(p => p.price));
-    const minPrice = Math.min(...pool.map(p => p.price));
-    const maxSales = Math.max(...pool.map(p => p.sales));
+    for (const [cn, en] of Object.entries(PRIMARY_CN_EN)) {
+      if (query.includes(cn)) { primaryTerms.push(cn); primaryTerms.push(...en); }
+    }
+    for (const [cn, en] of Object.entries(SECONDARY_CN_EN)) {
+      if (query.includes(cn)) { secondaryTerms.push(cn); secondaryTerms.push(...en); }
+    }
+
+    // Bigrams as additional primary signals (more specific than single chars)
+    const chineseOnly = query.replace(/[^一-龥]/g, "");
+    for (let i = 0; i < chineseOnly.length - 2; i++) {
+      const trigram = chineseOnly.slice(i, i + 3);
+      if (!primaryTerms.includes(trigram)) primaryTerms.push(trigram);
+    }
+
+    // Spam/irrelevant product blocker
+    const SPAM = /\btiktok\b|tok[\s_]data|follower|洗水任务|代充|充值|刷单|magic[\s-]?ball|essential[\s-]?oil/i;
+
+    const isRelevant = (name: string) => {
+      if (SPAM.test(name)) return false;
+      const lower = name.toLowerCase();
+      // Must match at least 1 PRIMARY term to be considered relevant
+      if (primaryTerms.length > 0) return primaryTerms.some(t => lower.includes(t));
+      // If no primary terms extracted, fall back to secondary (handles short queries)
+      return secondaryTerms.some(t => lower.includes(t));
+    };
+
+    // Strict: only relevant products enter AI picks. No fallback to garbage.
+    const candidates = allProducts.filter(p => p.price >= 3 && isRelevant(p.name));
+    if (candidates.length < 2) return [];
+
+    const maxPrice = Math.max(...candidates.map(p => p.price));
+    const minPrice = Math.min(...candidates.map(p => p.price));
+    const maxSales = Math.max(...candidates.map(p => p.sales));
     const priceRange = maxPrice - minPrice || 1;
-    return pool
+    return candidates
       .map(p => {
         const credScore  = p.authenticityScore;
         const priceScore = maxPrice > 0 ? ((maxPrice - p.price) / priceRange) * 100 : 50;
         const salesScore = maxSales > 0 ? (p.sales / maxSales) * 100 : 0;
-        const total = credScore * 0.4 + priceScore * 0.3 + salesScore * 0.3;
-        const tag = credScore >= 70 && priceScore >= 60 && salesScore >= 40 ? "综合最优" :
-                    credScore >= 75 ? "可信度最高" :
-                    priceScore >= 80 ? "性价比最高" :
-                    salesScore >= 80 ? "销量最高" : "推荐";
-        return { ...p, aiScore: Math.round(total), aiTag: tag };
+        const total = credScore * 0.5 + priceScore * 0.3 + salesScore * 0.2;
+        return { ...p, aiScore: Math.round(total), _cred: credScore, _price: priceScore, _sales: salesScore };
       })
       .sort((a, b) => b.aiScore - a.aiScore)
-      .slice(0, 4);
+      .slice(0, 4)
+      .map((p, idx) => {
+        const tag = idx === 0 ? "综合最优" :
+                    p._cred >= p._price && p._cred >= p._sales ? "可信度最高" :
+                    p._price >= p._sales ? "性价比最高" :
+                    "销量最高";
+        return { ...p, aiTag: tag };
+      });
   })();
+
+  // Relevance score using same CN_EN logic as AI picks
+  const relevanceTerms = (() => {
+    const CN_EN: Record<string, string[]> = {
+      "史努比": ["snoopy"], "哆啦a梦": ["doraemon"], "小熊维尼": ["winnie", "pooh"],
+      "卡通": ["cartoon"], "儿童": ["kid", "children"], "床上用品": ["bedding"],
+      "四件套": ["4in1", "4 piece"], "棉": ["cotton"], "枕套": ["pillowcase"],
+      "被套": ["duvet", "quilt"], "床单": ["sheet"], "电动": ["electric"],
+      "保温": ["insulated", "thermal"], "不锈钢": ["stainless", "steel"],
+      "马克杯": ["mug"], "搅拌": ["shaker", "mixing"], "蛋白粉": ["protein"],
+      "充电": ["rechargeable", "charging"], "手提包": ["handbag"], "背包": ["backpack"],
+      "运动鞋": ["sneaker", "shoe"], "耳机": ["earphone", "headphone"],
+    };
+    const terms: string[] = (query.match(/[a-zA-Z]{3,}/g) || []).map(w => w.toLowerCase());
+    for (const [cn, en] of Object.entries(CN_EN)) {
+      if (query.includes(cn)) { terms.push(cn); terms.push(...en); }
+    }
+    const chineseOnly = query.replace(/[^一-龥]/g, "");
+    for (let i = 0; i < chineseOnly.length - 1; i++) {
+      const b = chineseOnly.slice(i, i + 2);
+      if (!terms.includes(b)) terms.push(b);
+    }
+    return terms;
+  })();
+  const relevanceScore = (name: string) => {
+    const lower = name.toLowerCase();
+    return relevanceTerms.reduce((sum, t) => sum + (lower.includes(t) ? t.length : 0), 0);
+  };
 
   const filtered = allProducts
     .filter((p) => filterPlatform === "all" || p.platform === filterPlatform)
     .filter((p) => filterAuthenticity === "all" || p.authenticityLevel === filterAuthenticity)
     .sort((a, b) => {
+      if (sortBy === "relevance") return relevanceScore(b.name) - relevanceScore(a.name);
       if (sortBy === "price_asc") return a.price - b.price;
       if (sortBy === "authenticity_desc") return b.authenticityScore - a.authenticityScore;
       if (sortBy === "sales_desc") return b.sales - a.sales;
       return 0;
     });
+
+  const PAGE_SIZE = 20;
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pagedProducts = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const platformCounts = allProducts.reduce((acc, p) => {
     acc[p.platform] = (acc[p.platform] || 0) + 1;
@@ -423,7 +539,31 @@ function ResultsContent() {
   }, {} as Record<string, number>);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div
+      className="min-h-screen flex flex-col bg-slate-50 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 bg-blue-500/20 border-4 border-dashed border-blue-500 flex items-center justify-center pointer-events-none">
+          <div className="bg-white rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
+            <Camera className="w-12 h-12 text-blue-500" />
+            <p className="text-blue-700 font-bold text-lg">松开图片进行搜索</p>
+          </div>
+        </div>
+      )}
+
+      {showImageModal && (
+        <ImageSearchModal
+          onClose={() => { setShowImageModal(false); setDropFile(null); }}
+          onIdentified={handleImageIdentified}
+          preloadedFile={dropFile}
+        />
+      )}
+
       {superAnalysisProduct && (
         <SuperAnalysisModal
           product={{
@@ -456,6 +596,10 @@ function ResultsContent() {
                 onKeyDown={(e) => e.key === "Enter" && handleNewSearch()}
                 className="flex-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
                 placeholder={t("res_re_search")} />
+              <button onClick={() => { setDropFile(null); setShowImageModal(true); }} title="拍照识别产品"
+                className="self-center w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                <Camera className="w-4 h-4" />
+              </button>
             </div>
             <button onClick={handleNewSearch} disabled={selectedPlatforms.length === 0}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-sm font-medium px-5 rounded-xl transition-colors">
@@ -579,7 +723,7 @@ function ResultsContent() {
                   const count = p === "all" ? allProducts.length : (platformCounts[p] || 0);
                   if (p !== "all" && count === 0) return null;
                   return (
-                    <button key={p} onClick={() => setFilterPlatform(p)}
+                    <button key={p} onClick={() => { setFilterPlatform(p); setCurrentPage(1); }}
                       className={clsx("px-3 py-1 rounded-lg text-xs font-medium transition-colors border",
                         filterPlatform === p
                           ? "bg-blue-600 text-white border-blue-600"
@@ -599,7 +743,7 @@ function ResultsContent() {
                   { value: "medium", label: t("res_authenticity_medium") },
                   { value: "low", label: t("res_authenticity_low") },
                 ] as const).map((opt) => (
-                  <button key={opt.value} onClick={() => setFilterAuthenticity(opt.value)}
+                  <button key={opt.value} onClick={() => { setFilterAuthenticity(opt.value); setCurrentPage(1); }}
                     className={clsx("px-3 py-1 rounded-lg text-xs font-medium transition-colors border",
                       filterAuthenticity === opt.value
                         ? "bg-slate-800 text-white border-slate-800"
@@ -613,8 +757,9 @@ function ResultsContent() {
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                 <span className="text-xs text-slate-500">{t("res_sort")}</span>
                 <div className="relative">
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  <select value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortOption); setCurrentPage(1); }}
                     className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 pr-6 bg-white text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                    <option value="relevance">相关性最高</option>
                     <option value="price_asc">价格从低到高</option>
                     <option value="authenticity_desc">可信度从高到低</option>
                     <option value="sales_desc">销量从高到低</option>
@@ -722,20 +867,51 @@ function ResultsContent() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filtered.map((product) => (
-                  <div key={product.id} className="relative group">
-                    <ProductCard product={product}
-                      selected={selectedIds.includes(product.id)}
-                      onToggleSelect={toggleSelect} selectable />
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {pagedProducts.map((product) => (
+                    <div key={product.id} className="relative group">
+                      <ProductCard product={product}
+                        selected={selectedIds.includes(product.id)}
+                        onToggleSelect={toggleSelect} selectable />
+                      <button
+                        onClick={() => setSuperAnalysisProduct(product)}
+                        className="absolute bottom-12 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white text-xs font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 shadow-lg z-10">
+                        🔍 AI深度分析
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-8 pb-4">
                     <button
-                      onClick={() => setSuperAnalysisProduct(product)}
-                      className="absolute bottom-12 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white text-xs font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 shadow-lg z-10">
-                      🔍 AI深度分析
+                      onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      ‹ 上一页
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p}
+                        onClick={() => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className={`w-9 h-9 text-sm font-medium rounded-xl border transition-colors ${
+                          p === currentPage
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}>
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      下一页 ›
                     </button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </>
         )}

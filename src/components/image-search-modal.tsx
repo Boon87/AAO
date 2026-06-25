@@ -20,14 +20,15 @@ interface ProductAnalysis {
 interface ImageSearchModalProps {
   onClose: () => void;
   onIdentified: (productName: string) => void;
+  preloadedFile?: File | null;  // when set, skip choose → identify immediately
 }
 
 type Step = "choose" | "camera" | "preview" | "identifying" | "analysis" | "success" | "unrecognized" | "error";
 
-export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProps) {
-  const [step, setStep] = useState<Step>("choose");
-  const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: ImageSearchModalProps) {
+  const [step, setStep] = useState<Step>(preloadedFile ? "identifying" : "choose");
+  const [previewUrl, setPreviewUrl] = useState<string>(preloadedFile ? URL.createObjectURL(preloadedFile) : "");
+  const [selectedFile, setSelectedFile] = useState<File | null>(preloadedFile ?? null);
   const [identified, setIdentified] = useState<string>("");
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
   const [editKeyword, setEditKeyword] = useState<string>("");
@@ -42,6 +43,14 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
   }, [step]);
 
   useEffect(() => { return () => stopCamera(); }, []);
+
+  // Auto-identify when a preloaded file is provided (drag-drop from results page)
+  useEffect(() => {
+    if (preloadedFile) {
+      handleIdentify();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -96,30 +105,16 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
     setStep("identifying");
     try {
       if (!selectedFile) throw new Error("找不到图片，请重新选择");
-      const base64 = await fileToBase64(selectedFile);
-      const res = await fetch("/api/identify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: "image/jpeg" }),
-      });
-      const data = await res.json();
-      if (res.status === 422 || (res.ok && !data.productName)) { setStep("unrecognized"); return; }
-      if (!res.ok) throw new Error(data.error || "识别失败");
-      // Clean keyword — strip any JSON artifacts
-      const rawName = data.productName || "";
-      const cleanName = rawName.startsWith("{") || rawName.startsWith("`") || rawName.includes('"searchKeyword"')
-        ? (data.analysis?.searchKeyword || data.analysis?.productName || "")
-        : rawName;
-      if (!cleanName) { setStep("unrecognized"); return; }
-      setIdentified(cleanName);
-      if (data.analysis) {
-        setAnalysis(data.analysis);
-        setEditKeyword(cleanName);
-        setStep("analysis");
-      } else {
-        setStep("success");
-        setTimeout(() => { onIdentified(cleanName); onClose(); }, 1500);
-      }
+
+      const dataUrl = await fileToDataUrl(selectedFile);
+      const tbKeyword = await tryTaobaoImageSearch(dataUrl).catch(() => null);
+
+      if (!tbKeyword) { setStep("unrecognized"); return; }
+
+      setIdentified(tbKeyword);
+      setEditKeyword(tbKeyword);
+      setStep("success");
+      setTimeout(() => { onIdentified(tbKeyword); onClose(); }, 1500);
     } catch (err) {
       setErrorMsg(`错误：${err instanceof Error ? err.message : String(err)}`);
       setStep("error");
@@ -145,10 +140,37 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
     setStep("choose");
   };
 
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      handleFileSelected(file);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div
+        className={`relative w-full sm:max-w-lg bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-all ${isDragging ? "ring-4 ring-blue-400 ring-offset-2" : ""}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
@@ -163,7 +185,7 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
           {/* Step: choose */}
           {step === "choose" && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-500 mb-4">选择图片来源，AI 会分析产品详情</p>
+              <p className="text-sm text-slate-500 mb-4">选择图片来源，或直接将图片<strong>拖拉</strong>到此弹窗</p>
               <input ref={uploadInputRef} type="file" accept="image/*" className="hidden"
                 onChange={(e) => e.target.files?.[0] && handleFileSelected(e.target.files[0])} />
               <button onClick={startCamera}
@@ -234,8 +256,8 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
                 <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-slate-800">AI 正在分析产品…</p>
-                <p className="text-sm text-slate-500 mt-1">识别颜色、材质、品牌等详情</p>
+                <p className="font-semibold text-slate-800">正在识别产品…</p>
+                <p className="text-sm text-slate-500 mt-1">淘宝图搜中，请稍候约 10 秒</p>
               </div>
             </div>
           )}
@@ -443,7 +465,8 @@ export function ImageSearchModal({ onClose, onIdentified }: ImageSearchModalProp
   );
 }
 
-function fileToBase64(file: File): Promise<string> {
+// Returns full data URL (data:image/jpeg;base64,...)
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -458,9 +481,34 @@ function fileToBase64(file: File): Promise<string> {
       canvas.width = width; canvas.height = height;
       canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("图片读取失败")); };
     img.src = url;
+  });
+}
+
+// Keep for compatibility
+function fileToBase64(file: File): Promise<string> {
+  return fileToDataUrl(file).then(d => d.split(",")[1]);
+}
+
+// Try Taobao image search via Chrome extension
+function tryTaobaoImageSearch(imageDataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      resolve(null);
+    }, 12000);
+
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== "AAO_TB_IMAGE_RESULT") return;
+      clearTimeout(timer);
+      window.removeEventListener("message", handler);
+      resolve((event.data?.data?.keyword as string) || null);
+    };
+
+    window.addEventListener("message", handler);
+    window.postMessage({ type: "AAO_TB_IMAGE_SEARCH", imageDataUrl }, "*");
   });
 }

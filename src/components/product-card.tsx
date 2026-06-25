@@ -15,20 +15,24 @@ interface ProductCardProps {
 
 export function ProductCard({ product, selected, onToggleSelect, selectable }: ProductCardProps) {
   const { t } = useLanguage();
+  const hasUrl = product.url && product.url !== "#";
   return (
     <div
       className={clsx(
         "bg-white rounded-xl border-2 transition-all duration-150 overflow-hidden",
         selected
           ? "border-blue-500 shadow-md shadow-blue-100"
-          : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
+          : "border-slate-200 hover:border-slate-300 hover:shadow-sm",
+        hasUrl && "cursor-pointer"
       )}
+      onClick={() => hasUrl && window.open(product.url, "_blank", "noopener,noreferrer")}
     >
       {/* Image area */}
       <div className="relative">
         <img
           src={product.imageUrl}
           alt={product.name}
+          referrerPolicy="no-referrer"
           className="w-full h-40 object-cover"
         />
         {/* Platform badge */}
@@ -43,7 +47,7 @@ export function ProductCard({ product, selected, onToggleSelect, selectable }: P
         {/* Select checkbox */}
         {selectable && (
           <button
-            onClick={() => onToggleSelect?.(product.id)}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect?.(product.id); }}
             className="absolute top-2 right-2 bg-white rounded-md p-0.5 shadow"
           >
             {selected ? (

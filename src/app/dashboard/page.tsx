@@ -21,8 +21,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string[]>(["shopee", "lazada"]);
+  const [selected, setSelected] = useState<string[]>(["shopee", "lazada", "taobao", "pinduoduo", "1688"]);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [dropFile, setDropFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDragIdentifying, setIsDragIdentifying] = useState(false);
   const dragCounter = useRef(0);
@@ -96,28 +97,15 @@ export default function DashboardPage() {
     handleSearch(productName);
   };
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     dragCounter.current = 0;
     setIsDragging(false);
     const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
     if (!file) return;
-    setIsDragIdentifying(true);
-    try {
-      const base64 = await fileToBase64(file);
-      const res = await fetch("/api/identify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
-      });
-      const data = await res.json();
-      const keyword = data.analysis?.searchKeyword || data.productName;
-      if (keyword) {
-        router.push(`/results?q=${encodeURIComponent(keyword)}&platforms=${selected.join(",")}`);
-      }
-    } catch {}
-    setIsDragIdentifying(false);
-  }, [selected, router]);
+    setDropFile(file);
+    setShowImageModal(true);
+  }, []);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -171,7 +159,11 @@ export default function DashboardPage() {
       <Navbar />
 
       {showImageModal && (
-        <ImageSearchModal onClose={() => setShowImageModal(false)} onIdentified={handleImageIdentified} />
+        <ImageSearchModal
+          onClose={() => { setShowImageModal(false); setDropFile(null); }}
+          onIdentified={handleImageIdentified}
+          preloadedFile={dropFile}
+        />
       )}
 
       <main className="flex-1 flex flex-col items-center px-4 py-12 sm:py-20">
@@ -196,7 +188,7 @@ export default function DashboardPage() {
                 <X className="w-4 h-4" />
               </button>
             )}
-            <button onClick={() => setShowImageModal(true)} title={t("img_title")}
+            <button onClick={() => { setDropFile(null); setShowImageModal(true); }} title={t("img_title")}
               className="self-center w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
               <Camera className="w-5 h-5" />
             </button>
@@ -250,7 +242,7 @@ export default function DashboardPage() {
                 <ShoppingCart className="w-3.5 h-3.5" />{term}
               </button>
             ))}
-            <button onClick={() => setShowImageModal(true)}
+            <button onClick={() => { setDropFile(null); setShowImageModal(true); }}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full text-sm text-blue-600 hover:bg-blue-100 transition-colors">
               <Camera className="w-3.5 h-3.5" />{t("dash_camera_search")}
             </button>
