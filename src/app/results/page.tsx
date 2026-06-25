@@ -25,7 +25,7 @@ function parseTaobaoData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!items.length) return [];
   const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  return items.slice(0, 40).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const rawPrice = String(i.price || "0").replace(/[¥,]/g, "");
     const priceCny = parseFloat(rawPrice) || 0;
     const price = parseFloat((priceCny * cnyRate).toFixed(2));
@@ -52,7 +52,7 @@ function parsePddData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!items.length) return [];
   const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  return items.slice(0, 40).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const priceCny = parseFloat(i.price) || 0;
     const price = parseFloat((priceCny * cnyRate).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9万]/g, "").replace("万", "0000")) || 0;
@@ -100,7 +100,7 @@ function parse1688Data(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!items.length) return [];
   const prices = items.map((i: any) => parseFloat(i.price) * cnyRate).filter(p => p > 0); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marketAvg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-  return items.slice(0, 20).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  return items.slice(0, 40).map((i: any, idx: number): Product => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const priceCny = parseFloat(i.price) || 0;
     const price = parseFloat((priceCny * cnyRate).toFixed(2));
     const sales = parseInt(String(i.sales).replace(/[^0-9]/g, "")) || 0;
@@ -375,7 +375,7 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const taobaoPromise: Promise<Product[]> = platforms.includes("taobao")
-      ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 25000).then((d) => {
+      ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 33000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return parseTaobaoData(d as any, cnyRate);
@@ -383,7 +383,7 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const pddPromise: Promise<Product[]> = platforms.includes("pinduoduo")
-      ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 25000).then((d) => {
+      ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 30000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return parsePddData(d as any, cnyRate);
@@ -391,12 +391,13 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const p1688Promise: Promise<Product[]> = platforms.includes("1688")
-      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 30000).then((d) => {
+      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 46000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const all = parse1688Data(d as any, cnyRate);
-          const isRelevant = makeQueryFilter(query);
-          return all.filter(p => isRelevant(p.name));
+          // 1688 international shows English product names — skip Chinese trigram filter.
+          // The simplified keyword already ensures search relevance.
+          return all;
         })
       : Promise.resolve([]);
 
