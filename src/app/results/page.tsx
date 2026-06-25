@@ -71,6 +71,27 @@ function parsePddData(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   }).filter(p => p.name && p.price > 0);
 }
 
+// Filter products to only those containing core search terms (Chinese + English).
+// Prevents 1688/Taobao returning completely irrelevant products (e.g. toothbrush cups when searching for stirring cups).
+function makeQueryFilter(query: string): (name: string) => boolean {
+  // Extract English words (4+ chars) from query
+  const engTerms = (query.match(/[a-zA-Z]{4,}/g) || []).map(w => w.toLowerCase());
+  // Extract Chinese text before first English word, get meaningful trigrams
+  const GENERIC = new Set(["便携式", "大容量", "新款全", "款全自", "健身运", "式健身", "携式健", "多功能", "耐高温"]);
+  const chineseOnly = query.replace(/[^一-龥]/g, "");
+  const trigrams: string[] = [];
+  for (let i = 0; i <= chineseOnly.length - 3; i++) {
+    const t = chineseOnly.slice(i, i + 3);
+    if (!GENERIC.has(t) && !trigrams.includes(t)) trigrams.push(t);
+  }
+  const allTerms = [...engTerms, ...trigrams];
+  if (!allTerms.length) return () => true;
+  return (name: string) => {
+    const lower = name.toLowerCase();
+    return allTerms.some(t => lower.includes(t));
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parse1688Data(raw: any, cnyRate = DEFAULT_CNY_RATE): Product[] {
   if (!raw) return [];
@@ -356,7 +377,10 @@ function ResultsContent() {
       ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 30000).then((d) => {
           if (!d) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return parse1688Data(d as any, cnyRate);
+          const all = parse1688Data(d as any, cnyRate);
+          const isRelevant = makeQueryFilter(query);
+          const filtered = all.filter(p => isRelevant(p.name));
+          return filtered.length > 0 ? filtered : all.slice(0, 5); // fallback: show top 5 if all filtered
         })
       : Promise.resolve([]);
 
