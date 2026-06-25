@@ -272,6 +272,22 @@ function ResultsContent() {
   const [dropFile, setDropFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  const extensionMissingRef = useRef(false);
+
+  // Auto-retry search when extension connects after page was already loaded.
+  // Fires when: user installs extension, or clicks "reload" in chrome://extensions.
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "AAO_EXTENSION_READY" && extensionMissingRef.current) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  // Keep ref in sync so the handler above always sees the latest value
+  useEffect(() => { extensionMissingRef.current = extensionMissing; }, [extensionMissing]);
 
   const handleImageIdentified = (productName: string) => {
     setNewQuery(productName);
