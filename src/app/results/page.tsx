@@ -838,7 +838,7 @@ function ResultsContent() {
                             </span>
                           </div>
                           {product.imageUrl && (
-                            <img src={product.imageUrl} alt="" className="w-full h-20 object-cover rounded-lg mb-2" />
+                            <img src={product.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full h-20 object-cover rounded-lg mb-2" />
                           )}
                           <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
                           <div className="flex items-center justify-between mb-1">
