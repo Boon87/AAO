@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Upload, Loader2, CheckCircle, AlertCircle, RefreshCw, Pencil, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Camera, Upload, Loader2, CheckCircle, AlertCircle, RefreshCw, Pencil, Search, ImageIcon } from "lucide-react";
 
 interface ProductAnalysis {
   searchKeyword: string;
@@ -23,9 +24,10 @@ interface ImageSearchModalProps {
   preloadedFile?: File | null;  // when set, skip choose → identify immediately
 }
 
-type Step = "choose" | "camera" | "preview" | "identifying" | "analysis" | "success" | "unrecognized" | "error";
+type Step = "choose" | "camera" | "preview" | "identifying" | "searching1688" | "analysis" | "success" | "unrecognized" | "error";
 
 export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: ImageSearchModalProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>(preloadedFile ? "identifying" : "choose");
   const [previewUrl, setPreviewUrl] = useState<string>(preloadedFile ? URL.createObjectURL(preloadedFile) : "");
   const [selectedFile, setSelectedFile] = useState<File | null>(preloadedFile ?? null);
@@ -115,6 +117,35 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
       setEditKeyword(tbKeyword);
       setStep("success");
       setTimeout(() => { onIdentified(tbKeyword); onClose(); }, 1500);
+    } catch (err) {
+      setErrorMsg(`错误：${err instanceof Error ? err.message : String(err)}`);
+      setStep("error");
+    }
+  };
+
+  // 1688 image search (找同款) — returns real 1688 products by image, no keyword needed
+  const handle1688ImageSearch = async () => {
+    setStep("searching1688");
+    try {
+      if (!selectedFile) throw new Error("找不到图片，请重新选择");
+      const dataUrl = await fileToDataUrl(selectedFile);
+      const result = await try1688ImageSearch(dataUrl);
+
+      if (result?.antiBot) {
+        setErrorMsg("1688 检测到异常流量，暂时拦截了图片搜索。请隔几分钟再试，或换个网络。");
+        setStep("error");
+        return;
+      }
+      const items = result?.items || [];
+      if (!items.length) { setStep("unrecognized"); return; }
+
+      // Hand the scraped 1688 products to the results page via sessionStorage
+      sessionStorage.setItem(
+        "aao_1688_image_products",
+        JSON.stringify({ source: result?.source || "img_search", items })
+      );
+      onClose();
+      router.push(`/results?q=${encodeURIComponent("图片找同款")}&platforms=1688&fromimg=1`);
     } catch (err) {
       setErrorMsg(`错误：${err instanceof Error ? err.message : String(err)}`);
       setStep("error");
@@ -238,13 +269,31 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
               </div>
               <div className="flex gap-3">
                 <button onClick={handleReset}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                  <RefreshCw className="w-4 h-4" />重新选择
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <RefreshCw className="w-4 h-4" />重选
                 </button>
                 <button onClick={handleIdentify}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
-                  识别产品
+                  识别产品（文字搜索）
                 </button>
+              </div>
+              <button onClick={handle1688ImageSearch}
+                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                <ImageIcon className="w-4 h-4" />在 1688 找同款（按图搜索）
+              </button>
+              <p className="text-xs text-slate-400 text-center">「找同款」直接用图片在 1688 搜出相似产品，匹配更准</p>
+            </div>
+          )}
+
+          {/* Step: searching 1688 by image */}
+          {step === "searching1688" && (
+            <div className="py-8 flex flex-col items-center gap-4">
+              <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">正在 1688 找同款…</p>
+                <p className="text-sm text-slate-500 mt-1">上传图片并搜索中，请稍候约 30–40 秒</p>
               </div>
             </div>
           )}
@@ -510,5 +559,26 @@ function tryTaobaoImageSearch(imageDataUrl: string): Promise<string | null> {
 
     window.addEventListener("message", handler);
     window.postMessage({ type: "AAO_TB_IMAGE_SEARCH", imageDataUrl }, "*");
+  });
+}
+
+// Try 1688 image search (找同款) via Chrome extension — returns scraped products
+interface Image1688Result { items?: unknown[]; antiBot?: boolean; source?: string }
+function try1688ImageSearch(imageDataUrl: string): Promise<Image1688Result | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      resolve(null);
+    }, 55000);
+
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== "AAO_1688_IMAGE_RESULT") return;
+      clearTimeout(timer);
+      window.removeEventListener("message", handler);
+      resolve((event.data?.data as Image1688Result) ?? null);
+    };
+
+    window.addEventListener("message", handler);
+    window.postMessage({ type: "AAO_1688_IMAGE_SEARCH", imageDataUrl }, "*");
   });
 }

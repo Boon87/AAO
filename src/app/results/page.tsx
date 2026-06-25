@@ -257,6 +257,7 @@ function ResultsContent() {
   const router = useRouter();
   const query = searchParams.get("q") || "";
   const platformsParam = searchParams.get("platforms") || "shopee,lazada";
+  const fromImg = searchParams.get("fromimg") === "1";
 
   const [data, setData] = useState<SearchData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -338,6 +339,31 @@ function ResultsContent() {
     setAntiBotPlatforms([]);
     setData(null);
     setSelectedIds([]);
+
+    // 图片找同款 (1688 image search): products were already scraped by the extension
+    // and handed over via sessionStorage — just render them, no keyword search.
+    if (fromImg) {
+      try {
+        const raw = sessionStorage.getItem("aao_1688_image_products");
+        const parsed = raw ? JSON.parse(raw) : null;
+        const products = parsed ? parse1688Data(parsed, cnyRate) : [];
+        const prices = products.map((p) => p.price).filter((p) => p > 0);
+        const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+        setData({
+          products,
+          marketAvgPrice: avg,
+          marketMinPrice: prices.length ? Math.min(...prices) : 0,
+          marketMaxPrice: prices.length ? Math.max(...prices) : 0,
+          errors: [],
+        });
+        setLoading(false);
+        if (products.length) saveSearchHistory(query, ["1688"], products);
+      } catch {
+        setData({ products: [], marketAvgPrice: 0, marketMinPrice: 0, marketMaxPrice: 0, errors: [] });
+        setLoading(false);
+      }
+      return;
+    }
 
     const platforms = platformsParam.split(",");
     let cancelled = false;
@@ -432,7 +458,7 @@ function ResultsContent() {
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, platformsParam]);
+  }, [query, platformsParam, fromImg]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
