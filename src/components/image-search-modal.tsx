@@ -15,7 +15,9 @@ interface ProductAnalysis {
   features?: string[];
   quality?: string;
   market?: string;
-  confidence?: string;
+  category?: string;
+  reason?: string;
+  confidence?: string | number;
 }
 
 interface ImageSearchModalProps {
@@ -33,6 +35,7 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
   const [selectedFile, setSelectedFile] = useState<File | null>(preloadedFile ?? null);
   const [identified, setIdentified] = useState<string>("");
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
+  const [aiGuess, setAiGuess] = useState(false); // true when the shown result came from AI backup, not 拍立淘
   const [editKeyword, setEditKeyword] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [manualInput, setManualInput] = useState<string>("");
@@ -105,18 +108,35 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
 
   const handleIdentify = async () => {
     setStep("identifying");
+    setAiGuess(false);
     try {
       if (!selectedFile) throw new Error("找不到图片，请重新选择");
 
       const dataUrl = await fileToDataUrl(selectedFile);
       const tbKeyword = await tryTaobaoImageSearch(dataUrl).catch(() => null);
 
-      if (!tbKeyword) { setStep("unrecognized"); return; }
+      // Primary: Taobao 拍立淘 (accurate) → auto-search straight away.
+      if (tbKeyword) {
+        setIdentified(tbKeyword);
+        setEditKeyword(tbKeyword);
+        setStep("success");
+        setTimeout(() => { onIdentified(tbKeyword); onClose(); }, 1500);
+        return;
+      }
 
-      setIdentified(tbKeyword);
-      setEditKeyword(tbKeyword);
-      setStep("success");
-      setTimeout(() => { onIdentified(tbKeyword); onClose(); }, 1500);
+      // Backup: AI vision. Less reliable, so DON'T auto-search — route to the
+      // confirm screen where the user reviews / edits the keyword first.
+      const ai = await tryAiIdentify(selectedFile).catch(() => null);
+      if (ai?.searchKeyword) {
+        setAnalysis(ai);
+        setIdentified(ai.searchKeyword);
+        setEditKeyword(ai.searchKeyword);
+        setAiGuess(true);
+        setStep("analysis");
+        return;
+      }
+
+      setStep("unrecognized");
     } catch (err) {
       setErrorMsg(`错误：${err instanceof Error ? err.message : String(err)}`);
       setStep("error");
@@ -166,7 +186,7 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
 
   const handleReset = () => {
     setPreviewUrl(""); setSelectedFile(null); setIdentified("");
-    setAnalysis(null); setEditKeyword(""); setErrorMsg(""); setManualInput("");
+    setAnalysis(null); setAiGuess(false); setEditKeyword(""); setErrorMsg(""); setManualInput("");
     if (uploadInputRef.current) uploadInputRef.current.value = "";
     setStep("choose");
   };
@@ -306,7 +326,7 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
               </div>
               <div className="text-center">
                 <p className="font-semibold text-slate-800">正在识别产品…</p>
-                <p className="text-sm text-slate-500 mt-1">淘宝图搜中，请稍候约 10 秒</p>
+                <p className="text-sm text-slate-500 mt-1">先用淘宝图搜，认不出会自动改用 AI 辅助识别</p>
               </div>
             </div>
           )}
@@ -320,17 +340,36 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
                   <img src={previewUrl} alt="产品" className="w-20 h-20 object-cover rounded-xl border border-slate-200 shrink-0" />
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-xs font-medium text-green-600">识别完成</span>
+                      {aiGuess ? (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs font-medium text-amber-600">AI 推测</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className="text-xs font-medium text-green-600">识别完成</span>
+                        </>
+                      )}
                       {analysis.confidence && <span className="text-xs text-slate-400">· 可信度 {analysis.confidence}</span>}
                     </div>
-                    <p className="font-bold text-slate-800 text-base leading-snug">{analysis.productName}</p>
+                    <p className="font-bold text-slate-800 text-base leading-snug">{analysis.productName || analysis.searchKeyword}</p>
                     {analysis.market && <p className="text-xs text-slate-500 mt-0.5">{analysis.market}</p>}
+                    {analysis.reason && <p className="text-xs text-slate-500 mt-0.5">{analysis.reason}</p>}
                   </div>
                 </div>
               )}
 
-              {/* Analysis details */}
+              {/* AI backup: make clear this is a guess the user must verify */}
+              {aiGuess && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+                  <p className="font-semibold mb-0.5">⚠️ 这是 AI 推测，不一定准确</p>
+                  <p>淘宝拍立淘没认出，改由 AI 猜测。请核对下面的<strong>搜索词</strong>，不对就直接改，再点搜索。</p>
+                </div>
+              )}
+
+              {/* Analysis details (only shown when there are visual details — the AI backup has none) */}
+              {(analysis.color || analysis.material || analysis.capacity || analysis.dimensions || analysis.brand?.text || (analysis.features && analysis.features.length > 0) || analysis.quality) && (
               <div className="bg-slate-50 rounded-xl divide-y divide-slate-100 text-sm border border-slate-100">
                 {analysis.color && (
                   <div className="flex items-center gap-3 px-4 py-2.5">
@@ -396,6 +435,7 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
                   </div>
                 )}
               </div>
+              )}
 
               {/* Editable search keyword */}
               <div>
@@ -560,6 +600,23 @@ function tryTaobaoImageSearch(imageDataUrl: string): Promise<string | null> {
     window.addEventListener("message", handler);
     window.postMessage({ type: "AAO_TB_IMAGE_SEARCH", imageDataUrl }, "*");
   });
+}
+
+// AI backup identify — POST the image to /api/identify (Gemini→Claude vision).
+// Only called when Taobao 拍立淘 fails. Returns an analysis with a keyword +
+// confidence, which the modal shows on the confirm screen (never auto-searched).
+async function tryAiIdentify(file: File): Promise<ProductAnalysis | null> {
+  const imageBase64 = await fileToBase64(file);
+  const res = await fetch("/api/identify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64, mimeType: "image/jpeg" }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data?.analysis?.searchKeyword) return data.analysis as ProductAnalysis;
+  if (data?.productName) return { searchKeyword: data.productName, productName: data.productName };
+  return null;
 }
 
 // Try 1688 image search (找同款) via Chrome extension — returns scraped products
