@@ -9,7 +9,6 @@ import {
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ProductCard } from "@/components/product-card";
-import { SuperAnalysisModal } from "@/components/super-analysis-modal";
 import { ImageSearchModal } from "@/components/image-search-modal";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Platform, type Product } from "@/lib/mock-data";
 import { calculateAuthenticityScore } from "@/lib/authenticity";
@@ -334,7 +333,6 @@ function ResultsContent() {
     const stored = parseFloat(localStorage.getItem("aao_cny_rate") || "");
     return stored > 0 ? (1 / stored).toFixed(3) : (1 / DEFAULT_CNY_RATE).toFixed(3);
   });
-  const [superAnalysisProduct, setSuperAnalysisProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (!query) return;
@@ -689,25 +687,6 @@ function ResultsContent() {
         />
       )}
 
-      {superAnalysisProduct && (
-        <SuperAnalysisModal
-          product={{
-            name: superAnalysisProduct.name,
-            price: superAnalysisProduct.price,
-            sales: superAnalysisProduct.sales,
-            reviews: superAnalysisProduct.reviews,
-            rating: superAnalysisProduct.rating,
-            shopName: superAnalysisProduct.shopName || "未知店铺",
-            shopAge: superAnalysisProduct.shopAge || 12,
-            platform: superAnalysisProduct.platform,
-            imageUrl: superAnalysisProduct.imageUrl,
-            url: superAnalysisProduct.url,
-          }}
-          marketAvgPrice={data?.marketAvgPrice || superAnalysisProduct.price}
-          allPrices={(data?.products || []).map(p => p.price)}
-          onClose={() => setSuperAnalysisProduct(null)}
-        />
-      )}
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
@@ -1011,16 +990,9 @@ function ResultsContent() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {pagedProducts.map((product) => (
-                    <div key={product.id} className="relative group">
-                      <ProductCard product={product}
-                        selected={selectedIds.includes(product.id)}
-                        onToggleSelect={toggleSelect} selectable />
-                      <button
-                        onClick={() => setSuperAnalysisProduct(product)}
-                        className="absolute bottom-12 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white text-xs font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 shadow-lg z-10">
-                        🔍 AI深度分析
-                      </button>
-                    </div>
+                    <ProductCard key={product.id} product={product}
+                      selected={selectedIds.includes(product.id)}
+                      onToggleSelect={toggleSelect} selectable />
                   ))}
                 </div>
 

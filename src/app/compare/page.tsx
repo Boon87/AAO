@@ -1,14 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, Star, ShoppingBag, MessageSquare, Heart,
+  ArrowLeft, Star, ShoppingBag, MessageSquare, Heart, Sparkles,
   TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { AuthenticityBadge } from "@/components/authenticity-badge";
+import { SuperAnalysisModal } from "@/components/super-analysis-modal";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Product } from "@/lib/mock-data";
 import { useLanguage } from "@/lib/i18n";
 
@@ -17,6 +18,7 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const ids = searchParams.get("ids")?.split(",") || [];
+  const [analyzeProduct, setAnalyzeProduct] = useState<Product | null>(null);
 
   let products: Product[] = [];
   if (typeof window !== "undefined") {
@@ -48,6 +50,14 @@ function CompareContent() {
   const maxPrice = Math.max(...prices);
   const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
   const maxSales = Math.max(...products.map((p) => p.sales));
+
+  // Merchant pricing basis: cost = cheapest China-sourcing product among the selected;
+  // MY market range = min/max of the Malaysian-marketplace products among the selected.
+  const sourcingProducts = products.filter((p) => p.platform === "taobao" || p.platform === "1688" || p.platform === "pinduoduo");
+  const cost = sourcingProducts.length ? Math.min(...sourcingProducts.map((p) => p.price)) : 0;
+  const myProducts = products.filter((p) => p.platform === "shopee" || p.platform === "lazada");
+  const myMin = myProducts.length ? Math.min(...myProducts.map((p) => p.price)) : 0;
+  const myMax = myProducts.length ? Math.max(...myProducts.map((p) => p.price)) : 0;
 
   const colWidth = Math.floor(100 / products.length);
 
@@ -230,6 +240,13 @@ function CompareContent() {
                           <p className="text-sm font-semibold text-slate-800 leading-snug line-clamp-3">
                             {p.name}
                           </p>
+                          <button
+                            onClick={() => setAnalyzeProduct(p)}
+                            className="mt-1 inline-flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            {lang === "zh" ? "AI 深度分析" : "AI Deep Analysis"}
+                          </button>
                         </div>
                       </th>
                     ))}
@@ -282,35 +299,100 @@ function CompareContent() {
               </div>
             </div>
 
-            {/* Pricing recommendation */}
+            {/* Pricing recommendation — cost + margin when a sourcing product is selected */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Info className="w-5 h-5 text-indigo-600" />
                 <h2 className="font-semibold text-slate-800">{lang === "zh" ? "定价建议" : "Pricing Guide"}</h2>
               </div>
-              <p className="text-xs text-slate-400 mb-4">
-                {lang === "zh" ? `以所选均价 RM ${avgPrice.toFixed(2)} 为基准：` : `Based on avg RM ${avgPrice.toFixed(2)}:`}
-              </p>
-              <div className="space-y-2.5">
-                {[
-                  { tier: lang === "zh" ? "高竞争力" : "Competitive", price: (avgPrice * 0.88).toFixed(2), desc: lang === "zh" ? "低于均价 12%" : "12% below avg", color: "bg-green-50 border-green-200 text-green-800" },
-                  { tier: lang === "zh" ? "市场水平" : "Market Rate", price: avgPrice.toFixed(2), desc: lang === "zh" ? "与竞品持平" : "Same as market", color: "bg-blue-50 border-blue-200 text-blue-800" },
-                  { tier: lang === "zh" ? "品牌溢价" : "Premium", price: (avgPrice * 1.12).toFixed(2), desc: lang === "zh" ? "高于均价 12%" : "12% above avg", color: "bg-purple-50 border-purple-200 text-purple-800" },
-                ].map((rec) => (
-                  <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color)}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold">{rec.tier}</span>
-                      <span className="text-base font-bold">RM {rec.price}</span>
-                    </div>
-                    <p className="text-xs opacity-70 mt-0.5">{rec.desc}</p>
+              {cost > 0 ? (
+                <>
+                  <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-100">
+                    <span className="text-xs text-slate-500">{lang === "zh" ? "进货成本（最低）" : "Cost (cheapest source)"}</span>
+                    <span className="text-sm font-bold text-slate-800">RM {cost.toFixed(2)}</span>
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs text-slate-400 mb-3">
+                    {lang === "zh" ? "以进货成本为基准的建议售价（含利润）：" : "Suggested selling price (cost + margin):"}
+                  </p>
+                  <div className="space-y-2.5">
+                    {[
+                      { tier: lang === "zh" ? "稳健" : "Safe", m: 2, color: "bg-green-50 border-green-200 text-green-800" },
+                      { tier: lang === "zh" ? "标准" : "Standard", m: 2.5, color: "bg-blue-50 border-blue-200 text-blue-800" },
+                      { tier: lang === "zh" ? "高利润" : "High-margin", m: 3, color: "bg-purple-50 border-purple-200 text-purple-800" },
+                    ].map((rec) => {
+                      const sell = cost * rec.m;
+                      const profit = sell - cost;
+                      const marginPct = Math.round((profit / sell) * 100);
+                      return (
+                        <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color)}>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-semibold">{rec.tier} · {rec.m}×</span>
+                            <span className="text-base font-bold">RM {sell.toFixed(2)}</span>
+                          </div>
+                          <p className="text-xs opacity-70 mt-0.5">
+                            {lang === "zh" ? `利润 RM ${profit.toFixed(2)} · 利润率 ${marginPct}%` : `Profit RM ${profit.toFixed(2)} · ${marginPct}% margin`}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {myMax > 0 && (
+                    <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
+                      {lang === "zh"
+                        ? `马来市场同类售价 RM ${myMin.toFixed(2)}–${myMax.toFixed(2)}，定在这区间内更有竞争力。`
+                        : `MY market price RM ${myMin.toFixed(2)}–${myMax.toFixed(2)} — price within it to stay competitive.`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 leading-relaxed">
+                    {lang === "zh"
+                      ? "💡 对比里加一个 1688 / 淘宝 / 拼多多 商品，就能看到「成本 + 利润」定价。以下按竞品均价参考："
+                      : "💡 Add a 1688 / Taobao / PDD product to get cost + margin pricing. Competitor-avg reference below:"}
+                  </p>
+                  <div className="space-y-2.5">
+                    {[
+                      { tier: lang === "zh" ? "高竞争力" : "Competitive", price: (avgPrice * 0.88).toFixed(2), desc: lang === "zh" ? "低于均价 12%" : "12% below avg", color: "bg-green-50 border-green-200 text-green-800" },
+                      { tier: lang === "zh" ? "市场水平" : "Market Rate", price: avgPrice.toFixed(2), desc: lang === "zh" ? "与竞品持平" : "Same as market", color: "bg-blue-50 border-blue-200 text-blue-800" },
+                      { tier: lang === "zh" ? "品牌溢价" : "Premium", price: (avgPrice * 1.12).toFixed(2), desc: lang === "zh" ? "高于均价 12%" : "12% above avg", color: "bg-purple-50 border-purple-200 text-purple-800" },
+                    ].map((rec) => (
+                      <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color)}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold">{rec.tier}</span>
+                          <span className="text-base font-bold">RM {rec.price}</span>
+                        </div>
+                        <p className="text-xs opacity-70 mt-0.5">{rec.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
           </div>
         </div>
       </main>
+
+      {analyzeProduct && (
+        <SuperAnalysisModal
+          product={{
+            name: analyzeProduct.name,
+            price: analyzeProduct.price,
+            sales: analyzeProduct.sales,
+            reviews: analyzeProduct.reviews,
+            rating: analyzeProduct.rating,
+            shopName: analyzeProduct.shopName || "未知店铺",
+            shopAge: analyzeProduct.shopAge || 12,
+            platform: analyzeProduct.platform,
+            imageUrl: analyzeProduct.imageUrl,
+            url: analyzeProduct.url,
+          }}
+          marketAvgPrice={avgPrice || analyzeProduct.price}
+          allPrices={products.map((p) => p.price)}
+          onClose={() => setAnalyzeProduct(null)}
+        />
+      )}
     </div>
   );
 }
