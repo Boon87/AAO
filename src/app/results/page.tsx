@@ -441,8 +441,13 @@ function ResultsContent() {
     Promise.all([shopeePromise, lazadaPromise, taobaoPromise, pddPromise, p1688Promise])
       .then(([shopeeProducts, lazadaProducts, taobaoProducts, pddProducts, p1688Products]) => {
         if (cancelled) return;
-        const allProducts = [...shopeeProducts, ...lazadaProducts, ...taobaoProducts, ...pddProducts, ...p1688Products];
-        const prices = allProducts.map((p) => p.price).filter((p) => p > 0);
+        // Drop products with absurd prices (parse errors). Nothing in home-goods on
+        // these platforms legitimately exceeds RM 100k — a huge value is a mis-parsed
+        // sales count / product id that would otherwise blow up the market average.
+        const SANE_MAX = 100000;
+        const allProducts = [...shopeeProducts, ...lazadaProducts, ...taobaoProducts, ...pddProducts, ...p1688Products]
+          .filter((p) => p.price > 0 && p.price < SANE_MAX);
+        const prices = allProducts.map((p) => p.price);
         const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
         setData({
           products: allProducts,
