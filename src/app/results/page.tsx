@@ -409,7 +409,7 @@ function ResultsContent() {
     };
 
     const taobaoPromise: Promise<Product[]> = platforms.includes("taobao")
-      ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 33000).then((d) => {
+      ? askExtension("AAO_TAOBAO_SEARCH", "AAO_TAOBAO_RESULT", 95000).then((d) => {
           if (!d) return [];
           if (flagAntiBot(d, "淘宝")) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -427,7 +427,7 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const p1688Promise: Promise<Product[]> = platforms.includes("1688")
-      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 46000).then((d) => {
+      ? askExtension("AAO_1688_SEARCH", "AAO_1688_RESULT", 100000).then((d) => {
           if (!d) return [];
           if (flagAntiBot(d, "1688")) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
