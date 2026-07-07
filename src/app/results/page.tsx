@@ -264,6 +264,7 @@ function ResultsContent() {
   const [fetchError, setFetchError] = useState("");
   const [extensionMissing, setExtensionMissing] = useState(false);
   const [antiBotPlatforms, setAntiBotPlatforms] = useState<string[]>([]);
+  const [needLoginPlatforms, setNeedLoginPlatforms] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all");
@@ -337,6 +338,7 @@ function ResultsContent() {
     setFetchError("");
     setExtensionMissing(false);
     setAntiBotPlatforms([]);
+    setNeedLoginPlatforms([]);
     setData(null);
     setSelectedIds([]);
 
@@ -418,8 +420,10 @@ function ResultsContent() {
       : Promise.resolve([]);
 
     const pddPromise: Promise<Product[]> = platforms.includes("pinduoduo")
-      ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 30000).then((d) => {
+      ? askExtension("AAO_PDD_SEARCH", "AAO_PDD_RESULT", 95000).then((d) => {
           if (!d) return [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((d as any).needsLogin) { setNeedLoginPlatforms((prev) => prev.includes("拼多多") ? prev : [...prev, "拼多多"]); return []; }
           if (flagAntiBot(d, "拼多多")) return [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return parsePddData(d as any, cnyRate);
@@ -799,6 +803,17 @@ function ResultsContent() {
                   {lang === "zh"
                     ? `${antiBotPlatforms.join("、")} 检测到异常流量，暂时拦截了自动搜索。请隔几分钟再试，或换个网络/稍后重试（此为平台的临时限流，会自动解除）。`
                     : `${antiBotPlatforms.join(", ")} flagged unusual traffic and temporarily blocked automated search. Wait a few minutes and retry (this is a temporary per-IP rate limit that clears on its own).`}
+                </span>
+              </div>
+            )}
+
+            {needLoginPlatforms.length > 0 && (
+              <div className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-4">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>
+                  {lang === "zh"
+                    ? `${needLoginPlatforms.join("、")} 需要登录才能搜索。搜索时会弹出该平台的登录窗口，请在弹窗中用手机号登录一次；登录后会自动继续，之后的搜索也会保持登录。`
+                    : `${needLoginPlatforms.join(", ")} requires sign-in to search. A login popup opens during search — sign in once (phone number); it will then continue automatically and stay logged in for future searches.`}
                 </span>
               </div>
             )}
