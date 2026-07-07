@@ -8,6 +8,12 @@ import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
+import { useSearchCooldown } from "@/lib/use-search-cooldown";
+
+// China platforms carry the highest bot-detection / ban risk — searching any of
+// them triggers a cooldown so the user can't rapid-fire searches at them.
+const CN_PLATFORMS = ["taobao", "pinduoduo", "1688"];
+const COOLDOWN_SEC = 45;
 
 const PLATFORMS = [
   { id: "shopee",    label: "Shopee",  color: "border-orange-400 bg-orange-50 text-orange-700", group: "MY" },
@@ -19,7 +25,8 @@ const PLATFORMS = [
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { remaining, startCooldown } = useSearchCooldown(COOLDOWN_SEC);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada", "taobao", "pinduoduo", "1688"]);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -89,6 +96,9 @@ export default function DashboardPage() {
   const handleSearch = (q?: string) => {
     const searchQuery = q || query;
     if (!searchQuery.trim() || selected.length === 0) return;
+    if (remaining > 0) return; // still cooling down — avoid rapid-fire searches
+    // Searching any China platform starts a cooldown to reduce ban risk
+    if (selected.some((p) => CN_PLATFORMS.includes(p))) startCooldown();
     router.push(`/results?q=${encodeURIComponent(searchQuery.trim())}&platforms=${selected.join(",")}`);
   };
 
@@ -201,11 +211,20 @@ export default function DashboardPage() {
               className="self-center w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
               <Camera className="w-5 h-5" />
             </button>
-            <button onClick={() => handleSearch()} disabled={!query.trim() || selected.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shrink-0">
-              {t("dash_search_btn")}
+            <button onClick={() => handleSearch()} disabled={!query.trim() || selected.length === 0 || remaining > 0}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shrink-0 min-w-[68px]">
+              {remaining > 0 ? (lang === "zh" ? `冷却 ${remaining}s` : `${remaining}s`) : t("dash_search_btn")}
             </button>
           </div>
+
+          {remaining > 0 && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>{lang === "zh"
+                ? `刚搜过中国平台，等 ${remaining} 秒再搜更安全（避免被平台当机器人）`
+                : `Just searched China platforms — wait ${remaining}s before searching again (avoids bot flags)`}</span>
+            </div>
+          )}
 
           <div className="mt-4 flex flex-col gap-2">
             <span className="text-sm text-slate-500">{t("dash_platform_label")}</span>
@@ -242,8 +261,8 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {(recentSearches.length > 0 ? recentSearches : EXAMPLE_SEARCHES).map((term) => (
-              <button key={term} onClick={() => { setQuery(term); handleSearch(term); }}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-colors border ${
+              <button key={term} onClick={() => { setQuery(term); handleSearch(term); }} disabled={remaining > 0}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${
                   recentSearches.length > 0
                     ? "bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600"
                     : "bg-slate-50 border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-600"
