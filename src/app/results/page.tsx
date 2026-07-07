@@ -11,7 +11,7 @@ import { Navbar } from "@/components/navbar";
 import { ProductCard } from "@/components/product-card";
 import { SuperAnalysisModal } from "@/components/super-analysis-modal";
 import { ImageSearchModal } from "@/components/image-search-modal";
-import { PLATFORM_LABELS, type Platform, type Product } from "@/lib/mock-data";
+import { PLATFORM_LABELS, PLATFORM_COLORS, type Platform, type Product } from "@/lib/mock-data";
 import { calculateAuthenticityScore } from "@/lib/authenticity";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
@@ -227,7 +227,7 @@ function parseShopeeData(data: any): Product[] {
   });
 }
 
-type SortOption = "relevance" | "price_asc" | "authenticity_desc" | "sales_desc";
+type SortOption = "relevance" | "bestseller" | "price_asc" | "authenticity_desc" | "sales_desc";
 
 interface SearchData {
   products: Product[];
@@ -500,8 +500,8 @@ function ResultsContent() {
 
   const allProducts = data?.products ?? [];
 
-  // AI Smart Pick: priority order — 0.商品符合度(relevance, dominant) then 1.可信度 2.价格 3.销量
-  const aiTopPicks = (() => {
+  // 🔥 Merchant bestseller picks — highest 爆款潜力 (demand × margin) among sellable products
+  const bestsellerPicks = (() => {
     if (allProducts.length < 2) return [];
 
     // Two-tier term system:
@@ -578,36 +578,27 @@ function ResultsContent() {
       return n;
     };
 
-    // Strict: only relevant products enter AI picks. No fallback to garbage.
-    const candidates = allProducts.filter(p => p.price >= 3 && isRelevant(p.name));
-    if (candidates.length < 2) return [];
-
-    const maxPrice = Math.max(...candidates.map(p => p.price));
-    const minPrice = Math.min(...candidates.map(p => p.price));
-    const maxSales = Math.max(...candidates.map(p => p.sales));
-    const priceRange = maxPrice - minPrice || 1;
-    return candidates
+    // Merchant 爆款潜力: rank SELLABLE products (Shopee/Lazada — where a merchant lists)
+    // by demand (reviews+likes+rating) × margin (MY selling price vs cheapest China source).
+    const sellable = allProducts.filter(p => (p.platform === "shopee" || p.platform === "lazada") && p.price >= 1 && isRelevant(p.name));
+    if (sellable.length < 1) return [];
+    const sourcing = allProducts.filter(p => (p.platform === "taobao" || p.platform === "1688" || p.platform === "pinduoduo") && p.price > 0);
+    const cheapestSource = sourcing.length ? Math.min(...sourcing.map(p => p.price)) : 0;
+    const maxReviews = Math.max(1, ...sellable.map(p => p.reviews || 0));
+    const maxLikes = Math.max(1, ...sellable.map(p => p.likes || 0));
+    const lg = (v: number, mx: number) => Math.log10(v + 1) / Math.log10(mx + 1);
+    return sellable
       .map(p => {
-        const relScore   = relevanceScore(p.name);
-        const credScore  = p.authenticityScore;
-        const priceScore = maxPrice > 0 ? ((maxPrice - p.price) / priceRange) * 100 : 50;
-        const salesScore = maxSales > 0 ? (p.sales / maxSales) * 100 : 0;
-        // Relevance (商品符合) dominates; within the same match level rank by
-        // credibility(可信度) > price(价格) > sales(销量). The blend max is ~100, so
-        // each extra matched term (×200) always outranks a less-relevant product.
-        const blend = credScore * 0.5 + priceScore * 0.3 + salesScore * 0.2;
-        const total = relScore * 200 + blend;
-        return { ...p, aiScore: Math.round(total), _rel: relScore, _cred: credScore, _price: priceScore, _sales: salesScore };
+        // demand 0-100: reviews (proven buyers) + likes (favorites) + rating
+        const demand = (lg(p.reviews || 0, maxReviews) * 0.45 + lg(p.likes || 0, maxLikes) * 0.30 + ((p.rating || 0) / 5) * 0.25) * 100;
+        const marginRM = cheapestSource > 0 ? Math.max(0, +(p.price - cheapestSource).toFixed(2)) : 0;
+        const marginPct = cheapestSource > 0 && p.price > 0 ? Math.min(100, (marginRM / p.price) * 100) : 0;
+        // 爆款潜力 = 需求(卖得好) 60% + 利润空间(赚得多) 40%
+        const bestScore = Math.round(demand * 0.6 + marginPct * 0.4);
+        return { ...p, bestScore, marginRM, cheapestSource, _demand: Math.round(demand), _marginPct: Math.round(marginPct) };
       })
-      .sort((a, b) => b.aiScore - a.aiScore)
-      .slice(0, 4)
-      .map((p, idx) => {
-        const tag = idx === 0 ? "最符合" :
-                    p._cred >= p._price && p._cred >= p._sales ? "可信度最高" :
-                    p._price >= p._sales ? "性价比最高" :
-                    "销量最高";
-        return { ...p, aiTag: tag };
-      });
+      .sort((a, b) => b.bestScore - a.bestScore)
+      .slice(0, 4);
   })();
 
   // Relevance score using same CN_EN logic as AI picks
@@ -638,11 +629,25 @@ function ResultsContent() {
     return relevanceTerms.reduce((sum, t) => sum + (lower.includes(t) ? t.length : 0), 0);
   };
 
+  // 爆款潜力 for sorting: demand (reviews+likes+rating) + margin (vs cheapest China source).
+  // Only sellable MY-marketplace products score; sourcing-platform products sort to the bottom.
+  const cheapestSourcePrice = (() => {
+    const s = allProducts.filter((p) => (p.platform === "taobao" || p.platform === "1688" || p.platform === "pinduoduo") && p.price > 0);
+    return s.length ? Math.min(...s.map((p) => p.price)) : 0;
+  })();
+  const bestsellerScoreOf = (p: Product) => {
+    if (p.platform !== "shopee" && p.platform !== "lazada") return 0;
+    const demand = Math.log10((p.reviews || 0) + 1) * 22 + Math.log10((p.likes || 0) + 1) * 14 + (p.rating || 0) * 4;
+    const margin = cheapestSourcePrice > 0 && p.price > cheapestSourcePrice ? ((p.price - cheapestSourcePrice) / p.price) * 30 : 0;
+    return demand + margin;
+  };
+
   const filtered = allProducts
     .filter((p) => filterPlatform === "all" || p.platform === filterPlatform)
     .filter((p) => filterAuthenticity === "all" || p.authenticityLevel === filterAuthenticity)
     .sort((a, b) => {
       if (sortBy === "relevance") return relevanceScore(b.name) - relevanceScore(a.name);
+      if (sortBy === "bestseller") return bestsellerScoreOf(b) - bestsellerScoreOf(a);
       if (sortBy === "price_asc") return a.price - b.price;
       if (sortBy === "authenticity_desc") return b.authenticityScore - a.authenticityScore;
       if (sortBy === "sales_desc") return b.sales - a.sales;
@@ -902,6 +907,7 @@ function ResultsContent() {
                   <select value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortOption); setCurrentPage(1); }}
                     className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 pr-6 bg-white text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
                     <option value="relevance">相关性最高</option>
+                    <option value="bestseller">🔥 爆款潜力</option>
                     <option value="price_asc">价格从低到高</option>
                     <option value="authenticity_desc">可信度从高到低</option>
                     <option value="sales_desc">销量从高到低</option>
@@ -917,57 +923,50 @@ function ResultsContent() {
               </p>
             )}
 
-            {/* AI Smart Pick */}
-            {aiTopPicks.length >= 1 && (
-              <div className="mb-6 bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-yellow-400 text-base">🤖</span>
-                  <span className="font-bold text-white text-sm">AI 智能选品推荐</span>
-                  <span className="text-xs text-slate-400 ml-1">商品符合优先 · 可信度 · 价格 · 销量</span>
+            {/* 🔥 Merchant bestseller potential */}
+            {bestsellerPicks.length >= 1 && (
+              <div className="mb-6 bg-gradient-to-r from-orange-600 to-rose-600 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">🔥</span>
+                  <span className="font-bold text-white text-sm">{lang === "zh" ? "爆款潜力榜 · 商家选品" : "Bestseller Potential · Merchant Picks"}</span>
+                  <span className="text-xs text-white/70 ml-1">{lang === "zh" ? "需求(评价+收藏+评分) × 利润空间" : "demand × margin"}</span>
                 </div>
+                <p className="text-xs text-white/70 mb-3">
+                  {lang === "zh"
+                    ? `在马来卖得火 + 能从中国低价进货 = 最值得做的品${bestsellerPicks[0].cheapestSource > 0 ? `（最低进货价 RM ${bestsellerPicks[0].cheapestSource.toFixed(2)}）` : ""}`
+                    : `Sells well in MY + cheap to source from China = worth stocking${bestsellerPicks[0].cheapestSource > 0 ? ` (cheapest source RM ${bestsellerPicks[0].cheapestSource.toFixed(2)})` : ""}`}
+                </p>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {aiTopPicks.map((product, i) => {
-                    const tagColors: Record<string, string> = {
-                      "综合最优":   "bg-yellow-400 text-yellow-900",
-                      "可信度最高": "bg-green-400 text-green-900",
-                      "性价比最高": "bg-blue-400 text-blue-900",
-                      "销量最高":   "bg-purple-400 text-purple-900",
-                      "推荐":       "bg-slate-400 text-slate-900",
-                    };
+                  {bestsellerPicks.map((product, i) => {
                     const rankLabel = ["🥇", "🥈", "🥉", "4️⃣"][i];
                     return (
-                      <div key={product.id} className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-3 relative flex flex-col">
-                        <div className="cursor-pointer flex-1" onClick={() => setSuperAnalysisProduct(product)}>
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-base">{rankLabel}</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[product.aiTag] || tagColors["推荐"]}`}>
-                              {product.aiTag}
-                            </span>
-                          </div>
-                          {product.imageUrl && (
-                            <img src={product.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full h-20 object-cover rounded-lg mb-2" />
-                          )}
-                          <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-yellow-300 font-bold text-sm">RM {product.price}</span>
-                            <span className="text-slate-400 text-xs">评分 {product.aiScore}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                              product.authenticityLevel === "high" ? "bg-green-900/50 text-green-300" :
-                              product.authenticityLevel === "medium" ? "bg-yellow-900/50 text-yellow-300" :
-                              "bg-red-900/50 text-red-300"}`}>
-                              可信 {product.authenticityScore}分
-                            </span>
-                            {product.sales > 0 && <span className="text-slate-400 text-xs">{product.sales}销量</span>}
-                          </div>
+                      <div key={product.id} className="bg-white/10 rounded-xl p-3 flex flex-col">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-base">{rankLabel}</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-300 text-orange-900">
+                            {lang === "zh" ? "爆款分" : "Score"} {product.bestScore}
+                          </span>
+                        </div>
+                        {product.imageUrl && (
+                          <img src={product.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full h-20 object-cover rounded-lg mb-2" />
+                        )}
+                        <p className="text-white text-xs font-medium line-clamp-2 mb-2">{product.name}</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-yellow-200 font-bold text-sm">RM {product.price}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PLATFORM_COLORS[product.platform]}`}>
+                            {PLATFORM_LABELS[product.platform]}
+                          </span>
+                        </div>
+                        <div className="text-xs text-white/85 space-y-0.5 mb-2">
+                          <div className="flex justify-between"><span>{lang === "zh" ? "需求热度" : "Demand"}</span><span className="font-semibold">{product._demand}/100</span></div>
+                          <div className="flex justify-between"><span>{lang === "zh" ? "利润空间" : "Margin"}</span><span className="font-semibold">{product.marginRM > 0 ? `RM ${product.marginRM.toFixed(2)}` : "—"}</span></div>
+                          <div className="flex justify-between text-white/60"><span>{lang === "zh" ? "评价/收藏" : "Rev/Fav"}</span><span>{(product.reviews || 0).toLocaleString()} / {(product.likes || 0).toLocaleString()}</span></div>
                         </div>
                         {product.url && product.url !== "#" && (
                           <a href={product.url} target="_blank" rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
                             className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white text-xs font-medium transition-colors mt-auto">
                             <ExternalLink className="w-3 h-3" />
-                            前往 {PLATFORM_LABELS[product.platform]}
+                            {lang === "zh" ? "前往" : "Go to"} {PLATFORM_LABELS[product.platform]}
                           </a>
                         )}
                       </div>
