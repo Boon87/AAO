@@ -1,0 +1,91 @@
+{
+  "manifest_version": 3,
+  "name": "AAO Price Helper",
+  "version": "2.0",
+  "description": "为 AAO 价格工具提供 Shopee/Lazada/淘宝/拼多多/1688 数据",
+  "permissions": ["cookies", "tabs", "scripting", "alarms", "windows"],
+  "host_permissions": [
+    "https://shopee.com.my/*",
+    "https://www.lazada.com.my/*",
+    "https://s.taobao.com/*",
+    "https://item.taobao.com/*",
+    "https://www.pinduoduo.com/*",
+    "https://mobile.yangkeduo.com/*",
+    "https://s.1688.com/*",
+    "https://www.1688.com/*",
+    "http://localhost:3000/*",
+    "https://aao-price-tool.vercel.app/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "https://aao-price-tool.vercel.app/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:3000/*",
+        "https://aao-price-tool.vercel.app/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://shopee.com.my/search*"],
+      "js": ["shopee-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://shopee.com.my/search*"],
+      "js": ["shopee-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.lazada.com.my/catalog/*"],
+      "js": ["lazada-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.lazada.com.my/catalog/*"],
+      "js": ["lazada-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://mobile.yangkeduo.com/search_result.html*",
+        "https://www.pinduoduo.com/search_result.html*"
+      ],
+      "js": ["pdd-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://mobile.yangkeduo.com/search_result.html*",
+        "https://www.pinduoduo.com/search_result.html*"
+      ],
+      "js": ["pdd-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://s.1688.com/selloffer/offer_search.htm*"],
+      "js": ["1688-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://s.1688.com/selloffer/offer_search.htm*"],
+      "js": ["1688-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
