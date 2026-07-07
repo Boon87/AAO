@@ -10,6 +10,7 @@ export interface Product {
   sales: number;
   reviews: number;
   rating: number;
+  likes?: number; // favorites / 收藏数 — demand proxy (Shopee liked_count); sold count is hidden by platforms
   platform: Platform;
   shopName: string;
   shopAge: number; // months

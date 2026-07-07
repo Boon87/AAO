@@ -195,7 +195,11 @@ function parseShopeeData(data: any): Product[] {
     const b = raw.item_basic ?? raw;
     const price = (b.price_min ?? b.price ?? 0) / 100000;
     const originalPrice = b.price ? b.price / 100000 : undefined;
-    const sales = b.historical_sold ?? b.sold ?? 0;
+    // Shopee hides raw sold counts (all 0) — use liked_count (favorites) as the demand proxy,
+    // and keep reviews (cmt_count) + rating. sales falls back to any display sold count.
+    const likes = b.liked_count ?? 0;
+    const sales = b.historical_sold || b.sold || b.global_sold_count ||
+      b.item_card_display_sold_count?.display_sold_count || 0;
     const reviews = b.cmt_count ?? 0;
     const rating = b.item_rating?.rating_star ?? 0;
     const imageHash = b.image ?? "";
@@ -212,7 +216,7 @@ function parseShopeeData(data: any): Product[] {
     return {
       id: `shopee-${b.itemid}`,
       name: b.name ?? "未知商品",
-      price, sales, reviews, rating,
+      price, sales, reviews, rating, likes,
       originalPrice: originalPrice && originalPrice > price ? originalPrice : undefined,
       platform: "shopee",
       shopName,

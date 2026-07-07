@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, Star, ShoppingBag, MessageSquare,
+  ArrowLeft, Star, ShoppingBag, MessageSquare, Heart,
   TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -96,6 +96,26 @@ function CompareContent() {
           {p.reviews > 0 ? p.reviews.toLocaleString() : "—"}
         </span>
       ),
+    },
+    {
+      label: lang === "zh" ? "收藏" : "Favorites",
+      render: (p) => {
+        const likes = p.likes ?? 0;
+        const topLikes = Math.max(...products.map((x) => x.likes ?? 0));
+        return (
+          <div className="flex flex-col gap-1">
+            <span className={clsx("flex items-center gap-1.5 text-base font-semibold", likes === topLikes && likes > 0 ? "text-pink-600" : "text-slate-700")}>
+              <Heart className="w-4 h-4 text-slate-400" />
+              {likes > 0 ? likes.toLocaleString() : "—"}
+            </span>
+            {likes === topLikes && likes > 0 && (
+              <span className="inline-flex w-fit text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-semibold">
+                {lang === "zh" ? "最受欢迎" : "Most Wanted"}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       label: t("cmp_attr_rating"),
