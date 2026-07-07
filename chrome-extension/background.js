@@ -994,9 +994,12 @@ function extractPDD() {
       const ctTxt = container.textContent || "";
       const salesMatch = ctTxt.match(/已抢([\d.]+万?\+?)/);
       const sales = salesMatch ? salesMatch[1].replace("万", "0000") : "0";
-      const item = { name, price, image: imgSrc,
-        itemUrl: `https://mobile.yangkeduo.com/search_result.html?search_key=${encodeURIComponent(name)}`,
-        sales, shop: "拼多多商家" };
+      // Prefer the product's own goods_id link over a generic search link
+      const goodsA = container.querySelector('a[href*="goods_id="], a[href*="goods.html"], a[href*="goods1.html"], a[href*="goods2.html"]');
+      const gm = (goodsA?.getAttribute("href") || "").match(/goods_id=(\d+)/);
+      const itemUrl = gm ? `https://mobile.yangkeduo.com/goods.html?goods_id=${gm[1]}`
+        : (goodsA?.href || `https://mobile.yangkeduo.com/search_result.html?search_key=${encodeURIComponent(name)}`);
+      const item = { name, price, image: imgSrc, itemUrl, sales, shop: "拼多多商家" };
       // Keep shortest name per product image
       if (!imgMap.has(imgSrc) || name.length < imgMap.get(imgSrc).name.length) {
         imgMap.set(imgSrc, item);
@@ -1026,8 +1029,10 @@ function extractPDD() {
       const priceNum = texts.find(t => /^\d{1,5}(\.\d{1,2})?$/.test(t.trim()) && parseFloat(t) >= 1 && parseFloat(t) < 10000);
       const price = priceFull ? priceFull.replace(/[¥￥,]/g,"") : (priceNum || "0");
       if (parseFloat(price) <= 0) return null;
-      return { name: "拼多多商品", price, image: imgSrc,
-        itemUrl: `https://mobile.yangkeduo.com/search_result.html?search_key=`, sales: "0", shop: "拼多多商家" };
+      const goodsA2 = card.querySelector('a[href*="goods_id="], a[href*="goods.html"]') || card.closest('a[href*="goods_id="]');
+      const gm2 = (goodsA2?.getAttribute?.("href") || goodsA2?.href || "").match(/goods_id=(\d+)/);
+      const itemUrl2 = gm2 ? `https://mobile.yangkeduo.com/goods.html?goods_id=${gm2[1]}` : (goodsA2?.href || "https://mobile.yangkeduo.com/");
+      return { name: "拼多多商品", price, image: imgSrc, itemUrl: itemUrl2, sales: "0", shop: "拼多多商家" };
     }).filter(i => i && parseFloat(i.price) > 0);
     if (items2.length >= 2) return { source: "divcard", items: items2 };
   }
