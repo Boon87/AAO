@@ -6,6 +6,7 @@ import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2,
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
+import { BaokuanGuideModal } from "@/components/baokuan-guide-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 import { useSearchCooldown } from "@/lib/use-search-cooldown";
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada", "taobao", "pinduoduo", "1688"]);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [dropFile, setDropFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDragIdentifying, setIsDragIdentifying] = useState(false);
@@ -185,6 +187,8 @@ export default function DashboardPage() {
         />
       )}
 
+      {showGuide && <BaokuanGuideModal onClose={() => setShowGuide(false)} />}
+
       <main className="flex-1 flex flex-col items-center px-4 py-12 sm:py-20">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-3 py-1.5 rounded-full border border-blue-200 mb-4">
@@ -193,6 +197,12 @@ export default function DashboardPage() {
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-3">{t("dash_title")}</h1>
           <p className="text-slate-500 text-base max-w-md">{t("dash_subtitle")}</p>
+          <div className="mt-4">
+            <button onClick={() => setShowGuide(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-4 py-2 rounded-full transition-colors">
+              🔥 {t("dash_guide_btn")}
+            </button>
+          </div>
         </div>
 
         <div className="w-full max-w-2xl">
