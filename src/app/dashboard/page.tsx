@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2 } from "lucide-react";
+import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2, ShieldCheck, Flame, Wallet, Sparkles } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
@@ -127,6 +127,15 @@ export default function DashboardPage() {
       img.onerror = () => { URL.revokeObjectURL(url); reject(); };
       img.src = url;
     });
+
+  const FEATURES = [
+    { icon: ShoppingCart, color: "text-blue-600 bg-blue-50",     title: t("feat_compare_title"),    desc: t("feat_compare_desc") },
+    { icon: ShieldCheck,  color: "text-green-600 bg-green-50",   title: t("feat_auth_title"),       desc: t("feat_auth_desc") },
+    { icon: Camera,       color: "text-purple-600 bg-purple-50", title: t("feat_photo_title"),      desc: t("feat_photo_desc") },
+    { icon: Flame,        color: "text-orange-600 bg-orange-50", title: t("feat_bestseller_title"), desc: t("feat_bestseller_desc") },
+    { icon: Wallet,       color: "text-rose-600 bg-rose-50",     title: t("feat_pricing_title"),    desc: t("feat_pricing_desc") },
+    { icon: Sparkles,     color: "text-indigo-600 bg-indigo-50", title: t("feat_analysis_title"),   desc: t("feat_analysis_desc") },
+  ];
 
   return (
     <div
@@ -260,6 +269,30 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-0.5">{stat.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Feature overview — so users see everything the system can do */}
+        <div className="w-full max-w-4xl mt-16">
+          <div className="text-center mb-6">
+            <h2 className="text-lg font-bold text-slate-700">{t("dash_features_title")}</h2>
+            <p className="text-sm text-slate-400 mt-1">{t("dash_features_hint")}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="bg-white border border-slate-200 rounded-2xl p-5 flex gap-4 hover:border-slate-300 hover:shadow-sm transition-all">
+                  <div className={clsx("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", f.color)}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800 text-sm mb-1">{f.title}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </main>
     </div>
