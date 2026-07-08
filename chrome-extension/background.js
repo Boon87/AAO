@@ -1350,7 +1350,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "lazada_search") {
-    const url = `https://www.lazada.com.my/catalog/?q=${encodeURIComponent(message.keyword)}`;
+    // sort=popularity → Lazada best-selling first (same idea as Shopee sortBy=sales):
+    // surface products that actually sell, which carry real review/rating data,
+    // instead of the default relevance mix of new zero-engagement listings.
+    const url = `https://www.lazada.com.my/catalog/?q=${encodeURIComponent(message.keyword)}&sort=popularity`;
     console.log("[AAO] Opening Lazada tab:", message.keyword);
     searchLazadaViaTab(url)
       .then((r) => sendResponse(r))
