@@ -97,7 +97,7 @@ export default function LoginPage() {
           {t("login_no_account")}{" "}
           <a href="/signup" className="text-blue-600 hover:underline font-medium">{t("login_signup_link")}</a>
         </p>
-        <p className="text-center text-xs text-slate-400 mt-3">© 2025 AAO</p>
+        <p className="text-center text-xs text-slate-400 mt-3">© {new Date().getFullYear()} AAO</p>
       </div>
     </div>
   );

@@ -149,7 +149,7 @@ export default function SignupPage() {
           {t("signup_have_account")}{" "}
           <Link href="/login" className="text-blue-600 hover:underline font-medium">{t("signup_login_link")}</Link>
         </p>
-        <p className="text-center text-xs text-slate-400 mt-3">© 2025 AAO</p>
+        <p className="text-center text-xs text-slate-400 mt-3">© {new Date().getFullYear()} AAO</p>
       </div>
     </div>
   );
