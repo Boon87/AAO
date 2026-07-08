@@ -578,7 +578,12 @@ function ResultsContent() {
 
     // Merchant 爆款潜力: rank SELLABLE products (Shopee/Lazada — where a merchant lists)
     // by demand (reviews+likes+rating) × margin (MY selling price vs cheapest China source).
-    const sellable = allProducts.filter(p => (p.platform === "shopee" || p.platform === "lazada") && p.price >= 1 && isRelevant(p.name));
+    // Require real demand evidence (reviews + favorites >= 3): a product nobody has
+    // bought or saved isn't a 爆款 candidate no matter how fat the margin looks —
+    // a lone 5.0 rating with zero reviews was sneaking zero-demand items onto the board.
+    const sellable = allProducts.filter(p =>
+      (p.platform === "shopee" || p.platform === "lazada") && p.price >= 1 && isRelevant(p.name)
+      && (p.reviews || 0) + (p.likes || 0) >= 3);
     if (sellable.length < 1) return [];
     const sourcing = allProducts.filter(p => (p.platform === "taobao" || p.platform === "1688" || p.platform === "pinduoduo") && p.price > 0);
     const cheapestSource = sourcing.length ? Math.min(...sourcing.map(p => p.price)) : 0;
