@@ -128,7 +128,10 @@ export function BaokuanGuideModal({ onClose }: { onClose: () => void }) {
               <p className="text-sm text-slate-600 leading-relaxed mt-1">
                 {zh ? "搜过中国平台后，搜索按钮会自动冷却倒数 " : "After searching China platforms, the button shows a cooldown "}
                 <span className="inline-flex items-center gap-1 font-mono font-bold text-[12px] text-amber-800 bg-amber-200/50 px-1.5 py-0.5 rounded tabular-nums">⏱ {zh ? "冷却 45s" : "45s"}</span>
-                {zh ? " —— 等它归零再搜。系统已内建防机器人，但别短时间连搜十几个品，隔一下更稳。" : " — wait for it before searching again. Anti-bot delays are built in, but don't rapid-fire many searches."}
+                {zh ? " —— 等它归零再搜。系统还有每日中国平台搜索上限（50 次），到顶会拦下来保护账号。" : " — wait for it. There's also a daily China-search cap (50) that blocks further searches to protect your account."}
+              </p>
+              <p className="text-sm text-slate-600 leading-relaxed mt-2">
+                {zh ? "🔑 最关键的三件事：① 用养熟的老号（别用新号/小号）；② 一天别搜太多、别连珠炮；③ 弹出验证就自己慢慢过，别烦躁猛点。" : "🔑 Three habits that matter most: (1) use an aged account, not a fresh one; (2) don't search too many per day or in bursts; (3) if a captcha appears, complete it calmly yourself."}
               </p>
             </div>
           </div>

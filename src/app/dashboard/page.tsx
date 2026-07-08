@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2, ShieldCheck, Flame, Wallet, Sparkles } from "lucide-react";
+import { Search, Clock, TrendingUp, ShoppingCart, X, Camera, ImageIcon, Loader2, ShieldCheck, ShieldAlert, Flame, Wallet, Sparkles } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
@@ -11,6 +11,7 @@ import { CnLoginReminderModal } from "@/components/cn-login-reminder-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 import { useSearchCooldown } from "@/lib/use-search-cooldown";
+import { useCnSearchBudget, CN_DAILY_LIMIT } from "@/lib/use-cn-search-budget";
 
 // China platforms carry the highest bot-detection / ban risk — searching any of
 // them triggers a cooldown so the user can't rapid-fire searches at them.
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
   const { remaining, startCooldown } = useSearchCooldown(COOLDOWN_SEC);
+  const { count: cnCount, bump: bumpCn, atLimit: cnAtLimit, warn: cnWarn } = useCnSearchBudget();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada", "taobao", "pinduoduo", "1688"]);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -97,9 +99,9 @@ export default function DashboardPage() {
     setSelected((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]);
   };
 
-  // Actually fire the search (cooldown + navigate)
+  // Actually fire the search (cooldown + daily counter + navigate)
   const doSearch = (searchQuery: string) => {
-    if (selected.some((p) => CN_PLATFORMS.includes(p))) startCooldown();
+    if (selected.some((p) => CN_PLATFORMS.includes(p))) { startCooldown(); bumpCn(); }
     router.push(`/results?q=${encodeURIComponent(searchQuery.trim())}&platforms=${selected.join(",")}`);
   };
 
@@ -107,9 +109,11 @@ export default function DashboardPage() {
     const searchQuery = q || query;
     if (!searchQuery.trim() || selected.length === 0) return;
     if (remaining > 0) return; // still cooling down — avoid rapid-fire searches
+    const hitsCN = selected.some((p) => CN_PLATFORMS.includes(p));
+    // Daily China-search ceiling reached → block to protect the account
+    if (hitsCN && cnAtLimit) return;
     // First CN search this session → remind the user to log in to 淘宝/拼多多/1688
     // first (logged-in searches return far more results and dodge anti-bot walls).
-    const hitsCN = selected.some((p) => CN_PLATFORMS.includes(p));
     if (hitsCN && !sessionStorage.getItem("aao_cn_login_ack")) {
       setPendingQuery(searchQuery);
       return;
@@ -258,6 +262,24 @@ export default function DashboardPage() {
               <span>{lang === "zh"
                 ? `刚搜过中国平台，等 ${remaining} 秒再搜更安全（避免被平台当机器人）`
                 : `Just searched China platforms — wait ${remaining}s before searching again (avoids bot flags)`}</span>
+            </div>
+          )}
+
+          {/* Daily China-search budget — protects a heavy user from a ban */}
+          {cnAtLimit ? (
+            <div className="mt-2 flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{lang === "zh"
+                ? `今天中国平台已搜 ${cnCount} 次，达到安全上限（${CN_DAILY_LIMIT}）。为保护账号，请明天再搜，或先只用马来平台（Shopee/Lazada 不受限）。`
+                : `${cnCount} China-platform searches today — daily safety limit (${CN_DAILY_LIMIT}) reached. Protect your account: continue tomorrow, or use MY platforms only (Shopee/Lazada aren't limited).`}</span>
+            </div>
+          ) : cnCount > 0 && (
+            <div className={clsx("mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg",
+              cnWarn ? "text-amber-700 bg-amber-50 border border-amber-200" : "text-slate-400")}>
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>{lang === "zh"
+                ? `今日中国平台搜索 ${cnCount}/${CN_DAILY_LIMIT}${cnWarn ? " · 接近上限，注意别太频繁" : ""}`
+                : `China searches today ${cnCount}/${CN_DAILY_LIMIT}${cnWarn ? " · nearing the limit, ease off" : ""}`}</span>
             </div>
           )}
 
