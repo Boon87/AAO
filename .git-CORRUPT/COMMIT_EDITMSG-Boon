@@ -1,9 +1,0 @@
-Bestseller board: require demand evidence (reviews + likes >= 3)
-
-Live test (Snoopy bedding) showed zero-demand products (0 reviews / 0-2
-favorites) ranking on the 爆款潜力榜 at score 52 purely on margin - a
-lone 5.0 rating plus a fat margin was enough. That contradicts the 爆款
-definition (sales high, reviews plenty). Sellable candidates now need at
-least 3 combined reviews + favorites to qualify for the board.
-
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
