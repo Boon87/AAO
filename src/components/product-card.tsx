@@ -103,9 +103,16 @@ export function ProductCard({ product, selected, onToggleSelect, selectable }: P
         {/* Shop name */}
         <p className="text-xs text-slate-400 truncate">{t("cmp_attr_shop")}：{product.shopName}</p>
 
-        {/* Authenticity */}
+        {/* Authenticity — no sales/reviews/rating means nothing to verify, so
+            don't show a misleading "100 分" green badge */}
         <div className="pt-1 border-t border-slate-100">
-          <AuthenticityBadge score={product.authenticityScore} level={product.authenticityLevel} size="sm" />
+          {product.sales === 0 && product.reviews === 0 && product.rating === 0 ? (
+            <span className="inline-flex items-center text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+              {t("card_no_score")}
+            </span>
+          ) : (
+            <AuthenticityBadge score={product.authenticityScore} level={product.authenticityLevel} size="sm" />
+          )}
         </div>
       </div>
     </div>

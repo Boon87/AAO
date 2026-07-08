@@ -96,6 +96,7 @@ const translations = {
     card_select: "选择对比",
     card_selected: "已选中",
     card_no_sales: "暂无数据",
+    card_no_score: "数据不足 · 未评估",
     // Image search modal
     img_title: "拍照识别产品",
     img_take_photo: "拍照",
@@ -216,6 +217,7 @@ const translations = {
     card_select: "Select",
     card_selected: "Selected",
     card_no_sales: "No data",
+    card_no_score: "No data · not scored",
     // Image search modal
     img_title: "Identify Product via Photo",
     img_take_photo: "Take Photo",

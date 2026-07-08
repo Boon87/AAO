@@ -151,7 +151,16 @@ function CompareContent() {
     },
     {
       label: t("cmp_attr_authenticity"),
-      render: (p) => <AuthenticityBadge score={p.authenticityScore} level={p.authenticityLevel} />,
+      render: (p) =>
+        // No sales/reviews/favorites/rating → nothing to verify; a "100 分"
+        // there would be misleading. Say so instead of pretending certainty.
+        p.sales === 0 && p.reviews === 0 && (p.likes ?? 0) === 0 && p.rating === 0 ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+            {lang === "zh" ? "数据不足 · 未评估" : "No data · not scored"}
+          </span>
+        ) : (
+          <AuthenticityBadge score={p.authenticityScore} level={p.authenticityLevel} />
+        ),
     },
     {
       label: t("cmp_suspicious_flags"),
@@ -323,8 +332,11 @@ function CompareContent() {
                       const sell = cost * rec.m;
                       const profit = sell - cost;
                       const marginPct = Math.round((profit / sell) * 100);
+                      // Reality check each tier against actual MY market prices —
+                      // a multiple that lands above what competitors charge won't sell.
+                      const aboveMarket = myMax > 0 && sell > myMax;
                       return (
-                        <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color)}>
+                        <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color, aboveMarket && "opacity-60")}>
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-semibold">{rec.tier} · {rec.m}×</span>
                             <span className="text-base font-bold">RM {sell.toFixed(2)}</span>
@@ -332,17 +344,46 @@ function CompareContent() {
                           <p className="text-xs opacity-70 mt-0.5">
                             {lang === "zh" ? `利润 RM ${profit.toFixed(2)} · 利润率 ${marginPct}%` : `Profit RM ${profit.toFixed(2)} · ${marginPct}% margin`}
                           </p>
+                          {myMax > 0 && (
+                            <p className={clsx("text-[11px] font-semibold mt-1", aboveMarket ? "text-red-600" : "text-green-700")}>
+                              {aboveMarket
+                                ? (lang === "zh" ? `⚠️ 高于市场价 ${Math.round((sell / myMax - 1) * 100)}%，难卖` : `⚠️ ${Math.round((sell / myMax - 1) * 100)}% above market — hard to sell`)
+                                : (lang === "zh" ? "✓ 在市场价范围内" : "✓ Within market range")}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-                  {myMax > 0 && (
-                    <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
-                      {lang === "zh"
-                        ? `马来市场同类售价 RM ${myMin.toFixed(2)}–${myMax.toFixed(2)}，定在这区间内更有竞争力。`
-                        : `MY market price RM ${myMin.toFixed(2)}–${myMax.toFixed(2)} — price within it to stay competitive.`}
-                    </p>
-                  )}
+                  {myMax > 0 && (() => {
+                    // Market verdict: what actually happens if you price AT the market.
+                    const marginAtMarket = myMin - cost;
+                    const marginPctAtMarket = myMin > 0 ? Math.round((marginAtMarket / myMin) * 100) : 0;
+                    const marketLabel = myMin === myMax
+                      ? `RM ${myMin.toFixed(2)}`
+                      : `RM ${myMin.toFixed(2)}–${myMax.toFixed(2)}`;
+                    const verdict = marginAtMarket <= 0
+                      ? { cls: "text-red-700 bg-red-50 border-red-200",
+                          zh: `⚠️ 马来市场价（${marketLabel}）已低于进货成本 —— 这个货源做不了，建议换货源或换品。`,
+                          en: `⚠️ MY market price (${marketLabel}) is below your cost — this source doesn't work; find a cheaper source or another product.` }
+                      : marginPctAtMarket < 25
+                      ? { cls: "text-amber-800 bg-amber-50 border-amber-200",
+                          zh: `⚠️ 按市场价卖（约 RM ${myMin.toFixed(2)}），利润只有 RM ${marginAtMarket.toFixed(2)}（${marginPctAtMarket}%）—— 利润空间小，建议找更便宜的货源，或谨慎入场。`,
+                          en: `⚠️ Selling at market (≈RM ${myMin.toFixed(2)}) leaves only RM ${marginAtMarket.toFixed(2)} (${marginPctAtMarket}%) — thin margin; find a cheaper source or proceed carefully.` }
+                      : { cls: "text-green-800 bg-green-50 border-green-200",
+                          zh: `✅ 按市场价卖（约 RM ${myMin.toFixed(2)}）利润 RM ${marginAtMarket.toFixed(2)}（${marginPctAtMarket}%）—— 有利润空间，值得考虑。`,
+                          en: `✅ Selling at market (≈RM ${myMin.toFixed(2)}) earns RM ${marginAtMarket.toFixed(2)} (${marginPctAtMarket}%) — healthy margin, worth considering.` };
+                    return (
+                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                        <p className="text-xs text-slate-400">
+                          {lang === "zh" ? `马来市场同类售价 ${marketLabel}` : `MY market price ${marketLabel}`}
+                        </p>
+                        <p className={clsx("text-xs leading-relaxed border rounded-lg px-3 py-2 font-medium", verdict.cls)}>
+                          {lang === "zh" ? verdict.zh : verdict.en}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <>
