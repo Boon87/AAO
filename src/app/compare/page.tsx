@@ -4,12 +4,13 @@ import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Star, ShoppingBag, MessageSquare, Heart, Sparkles,
-  TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink, Calculator,
+  TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink, Calculator, Lightbulb,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { AuthenticityBadge } from "@/components/authenticity-badge";
 import { SuperAnalysisModal } from "@/components/super-analysis-modal";
+import { ReviewMiningModal } from "@/components/review-mining-modal";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Product } from "@/lib/mock-data";
 import { useLanguage } from "@/lib/i18n";
 
@@ -19,6 +20,7 @@ function CompareContent() {
   const router = useRouter();
   const ids = searchParams.get("ids")?.split(",") || [];
   const [analyzeProduct, setAnalyzeProduct] = useState<Product | null>(null);
+  const [mineProduct, setMineProduct] = useState<Product | null>(null);
   // Landed-cost calculator inputs (turn gross margin into real net profit)
   const [shipPerUnit, setShipPerUnit] = useState("3");   // RM freight per unit from China
   const [commissionPct, setCommissionPct] = useState("6"); // Shopee/Lazada commission %
@@ -261,6 +263,15 @@ function CompareContent() {
                             <Sparkles className="w-3.5 h-3.5" />
                             {lang === "zh" ? "AI 深度分析" : "AI Deep Analysis"}
                           </button>
+                          {(p.platform === "shopee" || p.platform === "lazada") && (
+                            <button
+                              onClick={() => setMineProduct(p)}
+                              className="mt-1 inline-flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-colors"
+                            >
+                              <Lightbulb className="w-3.5 h-3.5" />
+                              {lang === "zh" ? "改良机会" : "Improve it"}
+                            </button>
+                          )}
                         </div>
                       </th>
                     ))}
@@ -516,6 +527,10 @@ function CompareContent() {
           allPrices={products.map((p) => p.price)}
           onClose={() => setAnalyzeProduct(null)}
         />
+      )}
+
+      {mineProduct && (
+        <ReviewMiningModal productName={mineProduct.name} onClose={() => setMineProduct(null)} />
       )}
     </div>
   );
