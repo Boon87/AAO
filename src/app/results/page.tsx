@@ -666,6 +666,19 @@ function ResultsContent() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Platforms the user SELECTED that came back empty for no explained reason
+  // (not already covered by the extension/anti-bot/login/error banners). Their
+  // filter tab silently disappears otherwise — this tells the user why + what to do.
+  const emptySelectedPlatforms = (() => {
+    if (loading || !data) return [];
+    const flagged = new Set([...antiBotPlatforms, ...needLoginPlatforms, ...data.errors]);
+    return platformsParam.split(",").filter(Boolean).filter((id) =>
+      (platformCounts[id] || 0) === 0 &&
+      !(id === "shopee" && extensionMissing) &&
+      !flagged.has(PLATFORM_LABELS[id as keyof typeof PLATFORM_LABELS])
+    );
+  })();
+
   return (
     <div
       className="min-h-screen flex flex-col bg-slate-50 relative"
@@ -815,6 +828,25 @@ function ResultsContent() {
               <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {data.errors.join("、")} 暂时无法连接，只显示其余平台结果
+              </div>
+            )}
+
+            {/* Plain-language explainer when a selected platform came back empty */}
+            {emptySelectedPlatforms.length > 0 && (
+              <div className="flex items-start gap-2 text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2.5 mb-4">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+                <div className="leading-relaxed">
+                  <span className="font-semibold text-slate-700">
+                    {emptySelectedPlatforms.map((id) => PLATFORM_LABELS[id as keyof typeof PLATFORM_LABELS]).join(lang === "zh" ? "、" : ", ")}
+                  </span>
+                  {lang === "zh" ? (
+                    <> 这次没搜到结果。常见原因:<b>没登录该平台</b>、平台临时反爬限流、或关键词太长/太生僻。<br />
+                    <span className="text-slate-500">试试:在浏览器登录该平台后重搜{emptySelectedPlatforms.some((id) => ["taobao", "pinduoduo", "1688"].includes(id)) ? "（中国平台尤其要先登录）" : ""}，或换更短的关键词（只留核心品类词）。这不是系统坏了 —— 是平台这次没给数据。</span></>
+                  ) : (
+                    <> returned no results this time. Common causes: <b>not logged in</b>, temporary anti-bot throttling, or a keyword that's too long/rare.<br />
+                    <span className="text-slate-500">Try: log in to the platform in your browser and re-search, or use a shorter keyword. This isn&apos;t a bug — the platform just didn&apos;t return data this time.</span></>
+                  )}
+                </div>
               </div>
             )}
 
