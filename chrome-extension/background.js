@@ -359,19 +359,27 @@ async function humanScroll(tabId, world) {
   await new Promise((r) => setTimeout(r, randInt(500, 1100)));
 }
 
-// 1688 is a WHOLESALE search engine tuned for short supplier keywords ("史努比
-// 四件套"), not Taobao-style marketing titles ("史努比纯棉四件套可爱卡通漫画学生
-// 宿舍被套"). Long titles make its segmenter latch onto the filler words and
-// return generic same-category goods (user saw plain cartoon bedding instead of
-// Snoopy). Distill: strip pure-marketing filler, then cap the length. Short
-// queries are left untouched — filler words may BE the core there (e.g. 卡通四件套).
-const CN_FILLER = /可爱|卡通|漫画|新款|爆款|网红|ins风?|时尚|简约|创意|高档|高级|韩式|日式|北欧|多功能|家用|学生|宿舍|礼品|批发|厂家|直销|定制|包邮|特价|促销|清仓|正品|官方|旗舰店?|神器|202\d年?|四季|春夏|秋冬|加厚/g;
+// 1688 is a WHOLESALE search engine tuned for short supplier keywords, not
+// Taobao-style marketing titles. TWO problems with a title like "史努比纯棉四件套
+// 可爱卡通漫画学生宿舍被套":
+//   1. Licensed brand/character names (史努比/迪士尼/Hello Kitty…): 1688 suppliers
+//      avoid the trademark in their titles, so a brand query just returns the
+//      nearest generic category anyway. We STRIP the brand and search the CATEGORY
+//      — exactly what a merchant sourcing for private-label wants. (Taobao/PDD keep
+//      the brand; distillCnKeyword only runs for 1688.)
+//   2. Long marketing filler makes 1688's segmenter latch onto junk words. We strip
+//      it too — but KEEP 卡通, which becomes the useful generic once a brand is gone.
+// e.g. 史努比纯棉四件套可爱卡通漫画学生宿舍被套 → 纯棉四件套卡通被套
+const CN_BRAND = /史努比|snoopy|哆啦a?梦|叮当猫|小熊维尼|维尼熊?|winnie\s?the\s?pooh|winnie|pooh|迪士尼|disney|米奇|米老鼠|mickey|米妮|minnie|唐老鸭|hello\s?kitty|凯蒂猫|kitty|三丽鸥|sanrio|玉桂狗|大耳狗|库洛米|kuromi|美乐蒂|melody|皮卡丘|pikachu|宝可梦|pokemon|龙猫|totoro|海绵宝宝|spongebob|蜡笔小新|奥特曼|ultraman|迪迦|变形金刚|transformers|漫威|marvel|蜘蛛侠|spider-?man|冰雪奇缘|艾莎|elsa|frozen|小猪佩奇|佩奇|peppa|汪汪队|paw\s?patrol|芭比|barbie|布朗熊|可妮兔|line\s?friends|loopy|露比|卡皮巴拉|水豚|capybara|玲娜贝儿|星黛露|linabell|草莓熊|lotso|加菲猫|garfield|猫和老鼠|tom\s?and\s?jerry|忍者神龟|愤怒的?小鸟|angry\s?birds|超级马里奥|马里奥|super\s?mario/gi;
+const CN_FILLER = /可爱|漫画|新款|爆款|网红|ins风?|时尚|简约|创意|高档|高级|韩式|日式|北欧|多功能|家用|学生|宿舍|礼品|批发|厂家|直销|定制|包邮|特价|促销|清仓|正品|官方|旗舰店?|神器|202\d年?|四季|春夏|秋冬|加厚/g;
 function distillCnKeyword(kw) {
   const raw = (kw || "").trim();
-  if (raw.length <= 10) return raw;               // already short — don't touch
-  let k = raw.replace(CN_FILLER, "").replace(/\s+/g, " ").trim();
-  if (k.length < 4) k = raw;                      // stripped too much — keep original
-  if (k.length > 12) k = k.slice(0, 12);          // wholesale search likes it short
+  // Always strip licensed brand/character names (wholesale rarely carries them by name).
+  let k = raw.replace(CN_BRAND, "").replace(/\s+/g, " ").trim();
+  // Long titles: also strip pure-marketing filler (keeps 卡通 — see note above).
+  if (k.length > 10) k = k.replace(CN_FILLER, "").replace(/\s+/g, " ").trim();
+  if (k.length < 3) k = raw;                      // stripped too much — keep original
+  if (k.length > 14) k = k.slice(0, 14);          // wholesale search likes it short
   return k;
 }
 
