@@ -1523,8 +1523,11 @@ async function search1688ViaForm(keyword) {
             }
           };
           let best = null;
-          const deadline = Date.now() + 8000; // fail fast — 1688 withholds product data from the extension window
-          for (let attempt = 0; attempt < 2 && Date.now() < deadline; attempt++) {
+          // Was 8s/2 attempts, but slow renders were returning 0 items. Polling
+          // only re-reads the already-open page (no new requests), so a longer
+          // window costs nothing in ban risk.
+          const deadline = Date.now() + 15000;
+          for (let attempt = 0; attempt < 3 && Date.now() < deadline; attempt++) {
             if (done) return;
             await sweep();
             await humanDelay(1500, 800); // let name/price finish rendering
@@ -1908,7 +1911,7 @@ async function searchByTaobaoImage(imageDataUrl) {
       console.log("[AAO] TB image search: timeout");
       cleanup();
       resolve(null);
-    }, 30000);
+    }, 45000); // room for the human-like scroll (frontend waits 50s)
 
     // active:true so Taobao fully renders (background tabs may lazy-load)
     chrome.tabs.create({ url: "https://s.taobao.com/", active: true }, (tab) => {
@@ -1949,10 +1952,14 @@ async function searchByTaobaoImage(imageDataUrl) {
         if (phase === "navigating" && tabUrl.includes("localImgKey")) {
           phase = "extracting";
           chrome.tabs.onUpdated.removeListener(listener);
-          console.log("[AAO] TB image search: results page loaded, waiting 6s");
+          console.log("[AAO] TB image search: results page loaded");
 
-          // Wait for Taobao image search results to render
-          await new Promise(r => setTimeout(r, 6000));
+          // Let results start rendering, then browse like a human — random
+          // up/down scrolling (different every run) so the visit doesn't look
+          // like a fixed load→read→close robot pattern. Also mounts more
+          // result cards, giving the name vote below more titles to work with.
+          await new Promise(r => setTimeout(r, randInt(2500, 4000)));
+          await humanScroll(tabId, "MAIN");
 
           try {
             const res = await chrome.scripting.executeScript({
@@ -1964,7 +1971,7 @@ async function searchByTaobaoImage(imageDataUrl) {
                   const cfg = window.g_page_config;
                   const auctions = cfg?.mods?.itemlist?.data?.auctions;
                   if (auctions && auctions.length > 0) {
-                    return auctions.slice(0, 5).map(a => a.raw_title || a.title || "").filter(Boolean);
+                    return auctions.slice(0, 10).map(a => a.raw_title || a.title || "").filter(Boolean);
                   }
                 } catch(e) {}
 
@@ -1974,7 +1981,7 @@ async function searchByTaobaoImage(imageDataUrl) {
                   if (nd) {
                     const matches = JSON.stringify(nd).match(/"raw_title":"([^"]{5,60})"/g);
                     if (matches && matches.length > 0) {
-                      return matches.slice(0, 5).map(m => m.replace(/^"raw_title":"/, "").replace(/"$/, ""));
+                      return matches.slice(0, 10).map(m => m.replace(/^"raw_title":"/, "").replace(/"$/, ""));
                     }
                   }
                 } catch(e) {}
@@ -1986,7 +1993,7 @@ async function searchByTaobaoImage(imageDataUrl) {
                     if (t.includes('"raw_title"') && (t.includes('"auctions"') || t.includes('"items"'))) {
                       const m = t.match(/"raw_title":"([^"]{5,60})"/g);
                       if (m && m.length > 0) {
-                        return m.slice(0, 5).map(s2 => s2.replace(/^"raw_title":"/, "").replace(/"$/, ""));
+                        return m.slice(0, 10).map(s2 => s2.replace(/^"raw_title":"/, "").replace(/"$/, ""));
                       }
                     }
                   }
@@ -2000,7 +2007,7 @@ async function searchByTaobaoImage(imageDataUrl) {
                   const text = (el.textContent || "").replace(/\s+/g, " ").trim();
                   if (text.length >= 6 && text.length <= 60 && /[一-龥]{3,}/.test(text) && !UI_NOISE.test(text) && !seen.has(text)) {
                     seen.add(text); titles.push(text);
-                    if (titles.length >= 5) break;
+                    if (titles.length >= 10) break;
                   }
                 }
                 return titles;
@@ -2015,8 +2022,28 @@ async function searchByTaobaoImage(imageDataUrl) {
 
             if (titles.length === 0) { resolve(null); return; }
 
-            // Use first title (most relevant product from image search)
-            const best = titles[0];
+            // Majority vote: the title that shares the most words with all the
+            // OTHER titles is the name the results agree on — image search top
+            // hits can be off, but ten results rarely agree on a wrong name.
+            const tokensOf = (t) => {
+              const set = new Set();
+              const zh = t.replace(/[^一-龥]/g, "");
+              for (let i = 0; i + 1 < zh.length; i++) set.add(zh.slice(i, i + 2)); // Chinese bigrams
+              for (const w of (t.toLowerCase().match(/[a-z0-9]{2,}/g) || [])) set.add(w); // latin words/numbers
+              return set;
+            };
+            const tokenSets = titles.map(tokensOf);
+            let bestIdx = 0, bestScore = -1;
+            for (let i = 0; i < titles.length; i++) {
+              let score = 0;
+              for (let j = 0; j < titles.length; j++) {
+                if (i === j) continue;
+                for (const tok of tokenSets[i]) if (tokenSets[j].has(tok)) score++;
+              }
+              if (score > bestScore) { bestScore = score; bestIdx = i; } // ties → earlier (more relevant) result
+            }
+            const best = titles[bestIdx];
+            console.log("[AAO] TB image search: majority-vote pick", bestIdx, "of", titles.length, ":", best);
             let cleaned = best
               .replace(/【[^】]{0,30}】/g, "")
               .replace(/[！!｜|★▶►]/g, " ")

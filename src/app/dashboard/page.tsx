@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ImageSearchModal } from "@/components/image-search-modal";
 import { BaokuanGuideModal } from "@/components/baokuan-guide-modal";
+import { CnLoginReminderModal } from "@/components/cn-login-reminder-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 import { useSearchCooldown } from "@/lib/use-search-cooldown";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [selected, setSelected] = useState<string[]>(["shopee", "lazada", "taobao", "pinduoduo", "1688"]);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null); // search held while CN-login reminder is shown
   const [dropFile, setDropFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDragIdentifying, setIsDragIdentifying] = useState(false);
@@ -95,13 +97,24 @@ export default function DashboardPage() {
     setSelected((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]);
   };
 
+  // Actually fire the search (cooldown + navigate)
+  const doSearch = (searchQuery: string) => {
+    if (selected.some((p) => CN_PLATFORMS.includes(p))) startCooldown();
+    router.push(`/results?q=${encodeURIComponent(searchQuery.trim())}&platforms=${selected.join(",")}`);
+  };
+
   const handleSearch = (q?: string) => {
     const searchQuery = q || query;
     if (!searchQuery.trim() || selected.length === 0) return;
     if (remaining > 0) return; // still cooling down — avoid rapid-fire searches
-    // Searching any China platform starts a cooldown to reduce ban risk
-    if (selected.some((p) => CN_PLATFORMS.includes(p))) startCooldown();
-    router.push(`/results?q=${encodeURIComponent(searchQuery.trim())}&platforms=${selected.join(",")}`);
+    // First CN search this session → remind the user to log in to 淘宝/拼多多/1688
+    // first (logged-in searches return far more results and dodge anti-bot walls).
+    const hitsCN = selected.some((p) => CN_PLATFORMS.includes(p));
+    if (hitsCN && !sessionStorage.getItem("aao_cn_login_ack")) {
+      setPendingQuery(searchQuery);
+      return;
+    }
+    doSearch(searchQuery);
   };
 
   const handleImageIdentified = (productName: string) => {
@@ -188,6 +201,18 @@ export default function DashboardPage() {
       )}
 
       {showGuide && <BaokuanGuideModal onClose={() => setShowGuide(false)} />}
+
+      {pendingQuery !== null && (
+        <CnLoginReminderModal
+          onConfirm={() => {
+            sessionStorage.setItem("aao_cn_login_ack", "1");
+            const q = pendingQuery;
+            setPendingQuery(null);
+            doSearch(q);
+          }}
+          onClose={() => setPendingQuery(null)}
+        />
+      )}
 
       <main className="flex-1 flex flex-col items-center px-4 py-12 sm:py-20">
         <div className="text-center mb-10">

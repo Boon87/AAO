@@ -326,7 +326,7 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
               </div>
               <div className="text-center">
                 <p className="font-semibold text-slate-800">正在识别产品…</p>
-                <p className="text-sm text-slate-500 mt-1">先用淘宝图搜（最多约 35 秒），认不出会自动改用 AI 辅助识别</p>
+                <p className="text-sm text-slate-500 mt-1">先用淘宝图搜（最多约 50 秒），认不出会自动改用 AI 辅助识别</p>
               </div>
             </div>
           )}
@@ -583,14 +583,14 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 // Try Taobao image search via Chrome extension.
-// The extension's own flow (open tab → navigate → 6s render wait → extract)
-// caps out at 30s, so wait slightly longer than that before falling back to AI.
+// The extension's own flow (open tab → navigate → human-like scroll → extract)
+// caps out at 45s, so wait slightly longer than that before falling back to AI.
 function tryTaobaoImageSearch(imageDataUrl: string): Promise<string | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       window.removeEventListener("message", handler);
       resolve(null);
-    }, 35000);
+    }, 50000);
 
     const handler = (event: MessageEvent) => {
       if (event.data?.type !== "AAO_TB_IMAGE_RESULT") return;
