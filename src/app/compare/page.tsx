@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Star, ShoppingBag, MessageSquare, Heart, Sparkles,
-  TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink,
+  TrendingUp, Info, CheckCircle, AlertTriangle, ExternalLink, Calculator,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
@@ -19,6 +19,11 @@ function CompareContent() {
   const router = useRouter();
   const ids = searchParams.get("ids")?.split(",") || [];
   const [analyzeProduct, setAnalyzeProduct] = useState<Product | null>(null);
+  // Landed-cost calculator inputs (turn gross margin into real net profit)
+  const [shipPerUnit, setShipPerUnit] = useState("3");   // RM freight per unit from China
+  const [commissionPct, setCommissionPct] = useState("6"); // Shopee/Lazada commission %
+  const [otherPct, setOtherPct] = useState("3");          // SST / payment / misc %
+  const [sellPriceInput, setSellPriceInput] = useState(""); // blank → auto-fill from market
 
   let products: Product[] = [];
   if (typeof window !== "undefined") {
@@ -418,6 +423,76 @@ function CompareContent() {
                 </>
               )}
             </div>
+
+            {/* Landed-cost / net-profit calculator — turns gross margin into REAL
+                profit after freight, platform commission, SST/fees. Cost basis is
+                the cheapest China source; falls back to lowest compared price. */}
+            {(() => {
+              const baseCost = cost > 0 ? cost : (minPrice > 0 ? minPrice : 0);
+              if (baseCost <= 0) return null;
+              const ship = Math.max(0, parseFloat(shipPerUnit) || 0);
+              const comm = Math.max(0, parseFloat(commissionPct) || 0);
+              const other = Math.max(0, parseFloat(otherPct) || 0);
+              const defaultSell = myMin > 0 ? myMin : +(baseCost * 2.5).toFixed(2);
+              const sell = sellPriceInput.trim() !== "" ? Math.max(0, parseFloat(sellPriceInput) || 0) : defaultSell;
+              const landed = baseCost + ship;                       // 到岸成本/件
+              const fees = sell * (comm + other) / 100;             // 平台佣金 + 杂费
+              const net = +(sell - landed - fees).toFixed(2);       // 净利/件
+              const netPct = sell > 0 ? Math.round((net / sell) * 100) : 0;
+              const roi = landed > 0 ? Math.round((net / landed) * 100) : 0;
+              const tone = net <= 0 ? "text-red-700 bg-red-50 border-red-200"
+                : netPct < 15 ? "text-amber-800 bg-amber-50 border-amber-200"
+                : "text-green-800 bg-green-50 border-green-200";
+              const inputCls = "w-20 text-right px-2 py-1 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 tabular-nums";
+              return (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calculator className="w-5 h-5 text-emerald-600" />
+                    <h2 className="font-semibold text-slate-800">{lang === "zh" ? "到岸真实利润计算器" : "Landed Net-Profit Calculator"}</h2>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">{lang === "zh" ? "毛利之外，扣掉运费、平台佣金、税费后的真实净利。" : "Real net profit after freight, commission and fees — not just gross."}</p>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">{lang === "zh" ? "进货价/件" : "Cost/unit"}</span>
+                      <span className="font-semibold text-slate-800 tabular-nums">RM {baseCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">{lang === "zh" ? "运费/件 (RM)" : "Freight/unit (RM)"}</span>
+                      <input type="number" inputMode="decimal" value={shipPerUnit} onChange={(e) => setShipPerUnit(e.target.value)} className={inputCls} />
+                    </div>
+                    <div className="flex justify-between items-center border-t border-dashed border-slate-100 pt-2">
+                      <span className="text-slate-500">{lang === "zh" ? "= 到岸成本/件" : "= Landed cost"}</span>
+                      <span className="font-semibold text-slate-800 tabular-nums">RM {landed.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">{lang === "zh" ? "售价/件 (RM)" : "Sell price (RM)"}</span>
+                      <input type="number" inputMode="decimal" value={sellPriceInput} placeholder={defaultSell.toFixed(2)} onChange={(e) => setSellPriceInput(e.target.value)} className={inputCls} />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">{lang === "zh" ? "平台佣金 (%)" : "Commission (%)"}</span>
+                      <input type="number" inputMode="decimal" value={commissionPct} onChange={(e) => setCommissionPct(e.target.value)} className={inputCls} />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">{lang === "zh" ? "税费/杂费 (%)" : "Tax/misc (%)"}</span>
+                      <input type="number" inputMode="decimal" value={otherPct} onChange={(e) => setOtherPct(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+
+                  <div className={clsx("mt-3 rounded-xl border px-4 py-3", tone)}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold">{lang === "zh" ? "净利/件" : "Net profit/unit"}</span>
+                      <span className="text-xl font-bold tabular-nums">RM {net.toFixed(2)}</span>
+                    </div>
+                    <p className="text-xs mt-1 opacity-80 tabular-nums">
+                      {lang === "zh" ? `净利率 ${netPct}% · 回报率 ROI ${roi}%` : `Net margin ${netPct}% · ROI ${roi}%`}
+                      {net <= 0 && (lang === "zh" ? " · ⚠️ 亏本" : " · ⚠️ loss")}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">{lang === "zh" ? "※ 运费按每件估算；关税/SST 因品类而异，数字请按你的实际情况调。" : "※ Freight is per-unit estimate; duties/SST vary by category — adjust to your real figures."}</p>
+                </div>
+              );
+            })()}
 
           </div>
         </div>

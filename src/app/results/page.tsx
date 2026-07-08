@@ -692,7 +692,12 @@ function ResultsContent() {
     const marginRM = myMed > 0 && cheapestCn > 0 ? +(myMed - cheapestCn).toFixed(2) : 0;
     const marginPct = myMed > 0 && cheapestCn > 0 ? Math.round((marginRM / myMed) * 100) : 0;
     const spread = myLo > 0 ? myHi / myLo : 1; // wide = differentiated, tight = commodity
-    return { myCount: myPrices.length, cnCount: cnPrices.length, myMed, myLo, myHi, cheapestCn, cheapestCnProduct, medianProduct, marginRM, marginPct, spread };
+    // Saturation signals: how many distinct MY shops (competition breadth) and how
+    // entrenched the strongest incumbent is (max reviews). Only meaningful when some
+    // review data exists — otherwise we honestly can't call it.
+    const myShops = new Set(myList.map((p) => p.shopName).filter(Boolean)).size;
+    const maxMyReviews = myList.length ? Math.max(0, ...myList.map((p) => p.reviews || 0)) : 0;
+    return { myCount: myPrices.length, cnCount: cnPrices.length, myMed, myLo, myHi, cheapestCn, cheapestCnProduct, medianProduct, marginRM, marginPct, spread, myShops, maxMyReviews };
   })();
 
   // Platforms the user SELECTED that came back empty for no explained reason
@@ -962,6 +967,12 @@ function ResultsContent() {
                   if (marketRead.myCount >= 3) parts.push(marketRead.spread >= 2.5
                     ? (lang === "zh" ? "价格分散 → 有差异化 / 高端空间" : "wide spread → room to differentiate")
                     : (lang === "zh" ? "价格集中 → 主要拼价格" : "tight spread → competes on price"));
+                  // Saturation read (only when we actually have review data to judge by)
+                  if (marketRead.maxMyReviews > 0) {
+                    if (marketRead.maxMyReviews >= 5000) parts.push(lang === "zh" ? `🔴 红海：已有大卖家（头部 ${marketRead.maxMyReviews.toLocaleString()} 评价），难突破` : `🔴 red ocean: entrenched leader (${marketRead.maxMyReviews.toLocaleString()} reviews)`);
+                    else if (marketRead.maxMyReviews <= 800) parts.push(lang === "zh" ? "🟢 蓝海苗头：有需求但没被大卖家垄断，有切入机会" : "🟢 blue-ocean sign: demand but no dominant seller");
+                    else parts.push(lang === "zh" ? `🟡 竞争中等（头部 ${marketRead.maxMyReviews.toLocaleString()} 评价）` : `🟡 moderate competition`);
+                  }
                   if (!parts.length) return null;
                   return <p className="text-xs text-slate-600 mt-3 pt-3 border-t border-slate-100 leading-relaxed">{parts.join(lang === "zh" ? "　·　" : "  ·  ")}</p>;
                 })()}
