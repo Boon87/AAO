@@ -1,7 +1,23 @@
 # AAO 竞品分析工具 — 完整安装 & 迁移指南
 
 > 这份文档记录了**整个系统的所有部件**,方便:① 以后出问题恢复 ② 换电脑运行 ③ 迁移到另一个账户(如 Boon87-5)。
-> 里程碑标签:**`v1.0-complete`**（五平台全通 + 1688 反爬攻克）。要回到这个完好版本：`git checkout v1.0-complete`。
+> 里程碑标签:**`v1.0-complete`**（五平台全通 + 1688 反爬攻克）、**`v1.1-merchant`**（商家版:爆款榜+成本定价）。回到某版本：`git checkout <标签名>`。
+
+---
+
+## 0. ⚠️ 代码放哪里 —— OneDrive 血泪教训（2026-07-08）
+
+**铁律:代码跨电脑靠 GitHub,不靠 OneDrive。**
+
+OneDrive 同步 git 仓库会:云端化搞坏 `.git`（仓库直接报废）、把文件回滚成旧版、生成 `-Boon` 冲突副本。这些全都真实发生过。
+
+| 东西 | 放哪 |
+|------|------|
+| **本机活代码（git 仓库）** | `C:\Users\User\aao-price-tool`（本地,OneDrive 管不到） |
+| **Chrome 加载的扩展** | `C:\Users\User\aao-extension`（本地） |
+| **静态备份**（zip、aao-extension-LATEST） | OneDrive ✅（静态文件放 OneDrive 没问题） |
+
+用 Claude Code 时,在 `C:\Users\User\aao-price-tool` 打开项目。旧的 OneDrive `aao-price-tool` 文件夹已退役（里面有告示文件）,可整个删除。
 
 ---
 
@@ -20,12 +36,28 @@
 
 ## 2. 在另一台电脑上运行
 
-### 前端
+### 情况 A:只是「使用」AAO（5 分钟,不需要代码！）
+
+网站跑在 Vercel 云端,新电脑只要装扩展:
+1. 把扩展文件夹拷到那台电脑的**本地路径**(如 `C:\Users\<用户名>\aao-extension`,**别放 OneDrive/桌面**)。扩展来源任选:OneDrive 里的 `aao-extension-LATEST`、备份 zip 里的 `chrome-extension/`、或 GitHub 仓库里的 `chrome-extension/`
+2. Chrome → `chrome://extensions` → 开「开发者模式」→「加载已解压的扩展程序」→ 选那个本地文件夹
+3. 打开 **aao-price-tool.vercel.app** → 用员工账号登录
+4. 在 Chrome 里登录 **淘宝、拼多多、1688**（搜索结果多、不易被拦）
+5. 完事,直接用
+
+### 情况 B:要在新电脑「开发/改代码」
+
+先装好:[Git](https://git-scm.com/download/win) 和 [Node.js](https://nodejs.org)（都下一步到底即可）,然后:
 ```bash
-git clone https://github.com/Boon87/AAO.git
-cd AAO
+# clone 到本地路径,不要 clone 进 OneDrive！
+cd C:\Users\<用户名>
+git clone https://github.com/Boon87/AAO.git aao-price-tool
+cd aao-price-tool
 npm install
 ```
+第一次 push 时 Git 会弹出 GitHub 登录窗口,用 **Boon87** 账号登录一次即可。
+
+改完代码的日常循环:`git add -A` → `git commit -m "说明"` → `git push`（Vercel 自动部署）。回到旧电脑先 `git pull` 再继续改 —— 两台电脑永远通过 GitHub 保持同步。
 新建 `.env.local`（这个文件不在 git 里,含密钥）,填入 Supabase 的值（去 Supabase 后台 → Project Settings → API 复制）:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://bcgjpxfrhcnqwowdzach.supabase.co
