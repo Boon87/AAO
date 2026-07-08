@@ -677,17 +677,22 @@ function ResultsContent() {
       const m = Math.floor(s.length / 2);
       return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
     };
-    const myPrices = allProducts.filter((p) => p.platform === "shopee" || p.platform === "lazada").map((p) => p.price).filter((p) => p > 0);
-    const cnPrices = allProducts.filter((p) => ["taobao", "pinduoduo", "1688"].includes(p.platform)).map((p) => p.price).filter((p) => p > 0);
+    const myList = allProducts.filter((p) => (p.platform === "shopee" || p.platform === "lazada") && p.price > 0);
+    const cnList = allProducts.filter((p) => ["taobao", "pinduoduo", "1688"].includes(p.platform) && p.price > 0);
+    const myPrices = myList.map((p) => p.price);
+    const cnPrices = cnList.map((p) => p.price);
     if (!myPrices.length && !cnPrices.length) return null;
     const myMed = median(myPrices);
     const myLo = myPrices.length ? Math.min(...myPrices) : 0;
     const myHi = myPrices.length ? Math.max(...myPrices) : 0;
     const cheapestCn = cnPrices.length ? Math.min(...cnPrices) : 0;
+    // The actual listings behind the headline numbers, so they can be links.
+    const cheapestCnProduct = cnList.length ? cnList.reduce((a, b) => (a.price <= b.price ? a : b)) : null;
+    const medianProduct = myList.length ? myList.reduce((a, b) => (Math.abs(a.price - myMed) <= Math.abs(b.price - myMed) ? a : b)) : null;
     const marginRM = myMed > 0 && cheapestCn > 0 ? +(myMed - cheapestCn).toFixed(2) : 0;
     const marginPct = myMed > 0 && cheapestCn > 0 ? Math.round((marginRM / myMed) * 100) : 0;
     const spread = myLo > 0 ? myHi / myLo : 1; // wide = differentiated, tight = commodity
-    return { myCount: myPrices.length, cnCount: cnPrices.length, myMed, myLo, myHi, cheapestCn, marginRM, marginPct, spread };
+    return { myCount: myPrices.length, cnCount: cnPrices.length, myMed, myLo, myHi, cheapestCn, cheapestCnProduct, medianProduct, marginRM, marginPct, spread };
   })();
 
   // Platforms the user SELECTED that came back empty for no explained reason
@@ -922,13 +927,27 @@ function ResultsContent() {
                   {marketRead.myMed > 0 && (
                     <div>
                       <p className="text-[11px] text-slate-400">{lang === "zh" ? "中位价（典型价）" : "Median (typical)"}</p>
-                      <p className="text-sm font-bold text-indigo-700 mt-0.5">RM {marketRead.myMed.toFixed(2)}</p>
+                      {marketRead.medianProduct?.url && marketRead.medianProduct.url !== "#" ? (
+                        <a href={marketRead.medianProduct.url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-bold text-indigo-700 hover:underline mt-0.5">
+                          RM {marketRead.myMed.toFixed(2)} <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <p className="text-sm font-bold text-indigo-700 mt-0.5">RM {marketRead.myMed.toFixed(2)}</p>
+                      )}
                     </div>
                   )}
                   {marketRead.cheapestCn > 0 && (
                     <div>
                       <p className="text-[11px] text-slate-400">{lang === "zh" ? "最低进货价" : "Cheapest source"}</p>
-                      <p className="text-sm font-bold text-green-700 mt-0.5">RM {marketRead.cheapestCn.toFixed(2)}</p>
+                      {marketRead.cheapestCnProduct?.url && marketRead.cheapestCnProduct.url !== "#" ? (
+                        <a href={marketRead.cheapestCnProduct.url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-bold text-green-700 hover:underline mt-0.5">
+                          RM {marketRead.cheapestCn.toFixed(2)} <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <p className="text-sm font-bold text-green-700 mt-0.5">RM {marketRead.cheapestCn.toFixed(2)}</p>
+                      )}
                     </div>
                   )}
                 </div>
