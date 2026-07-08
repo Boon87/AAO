@@ -332,11 +332,17 @@ function CompareContent() {
                       const sell = cost * rec.m;
                       const profit = sell - cost;
                       const marginPct = Math.round((profit / sell) * 100);
-                      // Reality check each tier against actual MY market prices —
-                      // a multiple that lands above what competitors charge won't sell.
+                      // Reality-check each tier against actual MY market prices. Two
+                      // ways a tier is unrealistic: (a) the cheapest competitor already
+                      // sells at/below your cost (you can't win on price at all), or
+                      // (b) this tier's price is above the whole market. Both must flag,
+                      // so the tiers never say "✓ within range" while the verdict says
+                      // "source doesn't work".
+                      const belowMarketFloor = myMin > 0 && myMin < cost;
                       const aboveMarket = myMax > 0 && sell > myMax;
+                      const tierBad = belowMarketFloor || aboveMarket;
                       return (
-                        <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color, aboveMarket && "opacity-60")}>
+                        <div key={rec.tier} className={clsx("border rounded-xl px-3 py-2.5", rec.color, tierBad && "opacity-60")}>
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-semibold">{rec.tier} · {rec.m}×</span>
                             <span className="text-base font-bold">RM {sell.toFixed(2)}</span>
@@ -345,10 +351,12 @@ function CompareContent() {
                             {lang === "zh" ? `利润 RM ${profit.toFixed(2)} · 利润率 ${marginPct}%` : `Profit RM ${profit.toFixed(2)} · ${marginPct}% margin`}
                           </p>
                           {myMax > 0 && (
-                            <p className={clsx("text-[11px] font-semibold mt-1", aboveMarket ? "text-red-600" : "text-green-700")}>
-                              {aboveMarket
-                                ? (lang === "zh" ? `⚠️ 高于市场价 ${Math.round((sell / myMax - 1) * 100)}%，难卖` : `⚠️ ${Math.round((sell / myMax - 1) * 100)}% above market — hard to sell`)
-                                : (lang === "zh" ? "✓ 在市场价范围内" : "✓ Within market range")}
+                            <p className={clsx("text-[11px] font-semibold mt-1", tierBad ? "text-red-600" : "text-green-700")}>
+                              {belowMarketFloor
+                                ? (lang === "zh" ? `⚠️ 市场已有更低价 RM ${myMin.toFixed(2)}，难卖` : `⚠️ Market already sells at RM ${myMin.toFixed(2)} — hard to sell`)
+                                : aboveMarket
+                                  ? (lang === "zh" ? `⚠️ 高于市场价 ${Math.round((sell / myMax - 1) * 100)}%，难卖` : `⚠️ ${Math.round((sell / myMax - 1) * 100)}% above market — hard to sell`)
+                                  : (lang === "zh" ? "✓ 在市场价范围内" : "✓ Within market range")}
                             </p>
                           )}
                         </div>
@@ -364,8 +372,8 @@ function CompareContent() {
                       : `RM ${myMin.toFixed(2)}–${myMax.toFixed(2)}`;
                     const verdict = marginAtMarket <= 0
                       ? { cls: "text-red-700 bg-red-50 border-red-200",
-                          zh: `⚠️ 马来市场价（${marketLabel}）已低于进货成本 —— 这个货源做不了，建议换货源或换品。`,
-                          en: `⚠️ MY market price (${marketLabel}) is below your cost — this source doesn't work; find a cheaper source or another product.` }
+                          zh: `⚠️ 马来最低售价 RM ${myMin.toFixed(2)} 已低于你的进货成本 RM ${cost.toFixed(2)} —— 想卖得动就得亏本，建议换更便宜货源或换品。`,
+                          en: `⚠️ The cheapest MY seller (RM ${myMin.toFixed(2)}) is already below your cost (RM ${cost.toFixed(2)}) — you'd have to sell at a loss; find a cheaper source or another product.` }
                       : marginPctAtMarket < 25
                       ? { cls: "text-amber-800 bg-amber-50 border-amber-200",
                           zh: `⚠️ 按市场价卖（约 RM ${myMin.toFixed(2)}），利润只有 RM ${marginAtMarket.toFixed(2)}（${marginPctAtMarket}%）—— 利润空间小，建议找更便宜的货源，或谨慎入场。`,
