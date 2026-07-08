@@ -115,12 +115,15 @@ export function ImageSearchModal({ onClose, onIdentified, preloadedFile }: Image
       const dataUrl = await fileToDataUrl(selectedFile);
       const tbKeyword = await tryTaobaoImageSearch(dataUrl).catch(() => null);
 
-      // Primary: Taobao 拍立淘 (accurate) → auto-search straight away.
+      // Primary: Taobao 拍立淘. Route to the confirm screen (editable keyword)
+      // instead of auto-searching — so the user can review/fix the term before
+      // searching, which matters most for drag-drop where it all happens at once.
       if (tbKeyword) {
+        setAnalysis({ searchKeyword: tbKeyword, productName: tbKeyword });
         setIdentified(tbKeyword);
         setEditKeyword(tbKeyword);
-        setStep("success");
-        setTimeout(() => { onIdentified(tbKeyword); onClose(); }, 1500);
+        setAiGuess(false);
+        setStep("analysis");
         return;
       }
 
