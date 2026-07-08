@@ -10,6 +10,8 @@ import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
 import { ProductCard } from "@/components/product-card";
 import { ImageSearchModal } from "@/components/image-search-modal";
+import { SaveButton } from "@/components/save-button";
+import { productKey, getSavedKeys } from "@/lib/watchlist";
 import { PLATFORM_LABELS, PLATFORM_COLORS, type Platform, type Product } from "@/lib/mock-data";
 import { calculateAuthenticityScore } from "@/lib/authenticity";
 import { createClient } from "@/lib/supabase/client";
@@ -267,6 +269,9 @@ function ResultsContent() {
   const [fetchError, setFetchError] = useState("");
   const [extensionMissing, setExtensionMissing] = useState(false);
   const [antiBotPlatforms, setAntiBotPlatforms] = useState<string[]>([]);
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => { getSavedKeys().then(setSavedKeys).catch(() => {}); }, []);
   const [needLoginPlatforms, setNeedLoginPlatforms] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
@@ -1132,9 +1137,14 @@ function ResultsContent() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {pagedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product}
-                      selected={selectedIds.includes(product.id)}
-                      onToggleSelect={toggleSelect} selectable />
+                    <div key={product.id} className="relative">
+                      <div className="absolute top-2 left-2 z-10">
+                        <SaveButton product={product} query={query} initialSaved={savedKeys.has(productKey(product))} />
+                      </div>
+                      <ProductCard product={product}
+                        selected={selectedIds.includes(product.id)}
+                        onToggleSelect={toggleSelect} selectable />
+                    </div>
                   ))}
                 </div>
 

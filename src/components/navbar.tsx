@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, BarChart3, Languages } from "lucide-react";
+import { LogOut, BarChart3, Languages, Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 
@@ -48,6 +48,16 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-3">
+            {/* Watchlist */}
+            <Link
+              href="/watchlist"
+              title={lang === "zh" ? "选品清单" : "Watchlist"}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-amber-400 hover:text-amber-600 transition-colors"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === "zh" ? "选品清单" : "Watchlist"}</span>
+            </Link>
+
             {/* Language toggle */}
             <button
               onClick={toggle}
