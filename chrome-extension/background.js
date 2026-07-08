@@ -359,6 +359,22 @@ async function humanScroll(tabId, world) {
   await new Promise((r) => setTimeout(r, randInt(500, 1100)));
 }
 
+// 1688 is a WHOLESALE search engine tuned for short supplier keywords ("史努比
+// 四件套"), not Taobao-style marketing titles ("史努比纯棉四件套可爱卡通漫画学生
+// 宿舍被套"). Long titles make its segmenter latch onto the filler words and
+// return generic same-category goods (user saw plain cartoon bedding instead of
+// Snoopy). Distill: strip pure-marketing filler, then cap the length. Short
+// queries are left untouched — filler words may BE the core there (e.g. 卡通四件套).
+const CN_FILLER = /可爱|卡通|漫画|新款|爆款|网红|ins风?|时尚|简约|创意|高档|高级|韩式|日式|北欧|多功能|家用|学生|宿舍|礼品|批发|厂家|直销|定制|包邮|特价|促销|清仓|正品|官方|旗舰店?|神器|202\d年?|四季|春夏|秋冬|加厚/g;
+function distillCnKeyword(kw) {
+  const raw = (kw || "").trim();
+  if (raw.length <= 10) return raw;               // already short — don't touch
+  let k = raw.replace(CN_FILLER, "").replace(/\s+/g, " ").trim();
+  if (k.length < 4) k = raw;                      // stripped too much — keep original
+  if (k.length > 12) k = k.slice(0, 12);          // wholesale search likes it short
+  return k;
+}
+
 // Space out the START of Alibaba-family scrapes. Taobao and 1688 are both Alibaba
 // and share anti-bot/IP reputation, so hitting them at the same instant is the
 // riskiest thing we can do. Each scrape waits for its "slot", then books the next
@@ -1453,10 +1469,14 @@ async function search1688ViaForm(keyword) {
   return new Promise((resolve) => {
     const masterTimeout = setTimeout(() => { console.log("[AAO] 1688 master timeout"); resolve({ data: null }); }, 55000);
 
+    // Distill Taobao-style long titles into the short keywords 1688's wholesale
+    // search actually matches well (see distillCnKeyword).
+    const kw = distillCnKeyword(keyword);
+    if (kw !== keyword) console.log("[AAO] 1688 keyword distilled:", keyword, "→", kw);
     // 1688 honours &charset=utf8 → keywords can be plain UTF-8 percent-encoded.
     // This avoids the GBK form-submit dance and loads the results page in ONE navigation.
     const url = "https://s.1688.com/selloffer/offer_search.htm?keywords="
-      + encodeURIComponent(keyword) + "&charset=utf8";
+      + encodeURIComponent(kw) + "&charset=utf8";
     console.log("[AAO] 1688 opening:", url.slice(0, 110));
 
     chrome.windows.create(

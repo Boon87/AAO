@@ -1,0 +1,71 @@
+0000000000000000000000000000000000000000 2d2671094b8c7a3f957cc1dc21970e84ed7e0600 Boon <gheeboonting@gmail.com> 1782010107 +0800	commit (initial): Initial commit from Create Next App
+2d2671094b8c7a3f957cc1dc21970e84ed7e0600 0000000000000000000000000000000000000000 Boon <gheeboonting@gmail.com> 1782023776 +0800	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 2d2671094b8c7a3f957cc1dc21970e84ed7e0600 Boon <gheeboonting@gmail.com> 1782023776 +0800	Branch: renamed refs/heads/master to refs/heads/main
+2d2671094b8c7a3f957cc1dc21970e84ed7e0600 85b8becbdd66fca2b246d259accbe09ab9ac006c Boon <gheeboonting@gmail.com> 1782023931 +0800	commit: Initial commit: AAO competitive price analysis tool
+85b8becbdd66fca2b246d259accbe09ab9ac006c de4031b2361e463d0a2618f98e6a4a7a794a43b3 Boon <gheeboonting@gmail.com> 1782024660 +0800	commit: Remove debug and dead code before production deploy
+de4031b2361e463d0a2618f98e6a4a7a794a43b3 2f99890c08e4a71201b08dbf741b6e33a98c6b27 Boon <gheeboonting@gmail.com> 1782024927 +0800	commit: Remove unused server-side search API route
+2f99890c08e4a71201b08dbf741b6e33a98c6b27 3a3a3c6ef76d492df7ec7122f24726573b14294c Boon <gheeboonting@gmail.com> 1782025552 +0800	commit: Fix build errors: remove deprecated config export, fix Navbar prop
+3a3a3c6ef76d492df7ec7122f24726573b14294c 82539687852940a53b3bda03932fd316fa9494a0 Boon <gheeboonting@gmail.com> 1782181392 +0800	commit: Fix sales data, add EN/ZH language toggle, connect search history to Supabase
+82539687852940a53b3bda03932fd316fa9494a0 88e2692c5a4cc726f36949d2f070f14a6913bb4a Boon <gheeboonting@gmail.com> 1782182355 +0800	commit: Show example searches when no history, replace with real searches after first search
+88e2692c5a4cc726f36949d2f070f14a6913bb4a 310af1b55869be87a3b15a4c9380bcb1a7d57b7d Boon <gheeboonting@gmail.com> 1782183608 +0800	commit: Fix Shopee shop name and shop age using enriched API data
+310af1b55869be87a3b15a4c9380bcb1a7d57b7d 8d06e370a36769d85d053897efab1a44346e9aba Boon <gheeboonting@gmail.com> 1782185037 +0800	commit: Improve Lazada data extraction: more image fields and nextdata source support
+8d06e370a36769d85d053897efab1a44346e9aba 0bc714df75965a4b4cfd6e0413751fde44e10ae5 Boon <gheeboonting@gmail.com> 1782188492 +0800	commit: improve image recognition specificity
+0bc714df75965a4b4cfd6e0413751fde44e10ae5 51ea0ac2a4d02d5abfa7223cf472a65208e83392 Boon <gheeboonting@gmail.com> 1782190016 +0800	commit: add Gemini fallback for image recognition
+51ea0ac2a4d02d5abfa7223cf472a65208e83392 fe942956b7295ec75c31ecd903572d7175de3f0e Boon <gheeboonting@gmail.com> 1782190204 +0800	commit: use Gemini as primary, Claude as fallback
+fe942956b7295ec75c31ecd903572d7175de3f0e 0ae8ccc112c2097731a5d5727b3efb029440e86a Boon <gheeboonting@gmail.com> 1782191287 +0800	commit: add detailed product analysis card after image recognition
+0ae8ccc112c2097731a5d5727b3efb029440e86a 272e951e49e26fd591fa3d0966a4c438183ec044 Boon <gheeboonting@gmail.com> 1782191527 +0800	commit: upgrade to gemini-2.0-flash, improve material and keyword accuracy
+272e951e49e26fd591fa3d0966a4c438183ec044 17902569f11213a330a8b76bb19acd0a99fe8f35 Boon <gheeboonting@gmail.com> 1782191698 +0800	commit: fix: strictly exclude decorative logos from search keyword
+17902569f11213a330a8b76bb19acd0a99fe8f35 0ea86f786081f3f8c28b6629ea3b4ffed24a2dc8 Boon <gheeboonting@gmail.com> 1782191867 +0800	commit: smarter brand detection: include if searchable on Shopee, exclude if local/corporate
+0ea86f786081f3f8c28b6629ea3b4ffed24a2dc8 5be627a68496218f02ee2f51b32e8934456d2361 Boon <gheeboonting@gmail.com> 1782192130 +0800	commit: add drag-and-drop image recognition on dashboard
+5be627a68496218f02ee2f51b32e8934456d2361 8cc295e7d5af24e7691a520b74f8e32a347e279e Boon <gheeboonting@gmail.com> 1782197415 +0800	commit: add AI Super Buyer V2.0 — 10-layer product analysis
+8cc295e7d5af24e7691a520b74f8e32a347e279e 13f7a2b670277143a36d803fd5dce238c995c5a5 Boon <gheeboonting@gmail.com> 1782197576 +0800	commit: fix JSON parsing for image analysis, fix raw JSON in search history
+13f7a2b670277143a36d803fd5dce238c995c5a5 f64d51e4be70b75b88e7e8e62d2fc318f355060c Boon <gheeboonting@gmail.com> 1782197703 +0800	commit: filter JSON garbage from search history, clean image recognition keywords
+f64d51e4be70b75b88e7e8e62d2fc318f355060c 8b6b48e95f4ee4791cb57da273b08a645b7f51fa Boon <gheeboonting@gmail.com> 1782197838 +0800	commit: fix super-analyze: increase timeout, add gemini-1.5-flash fallback, improve error logging
+8b6b48e95f4ee4791cb57da273b08a645b7f51fa e18337367acacede6c6896b71cdadcfe3fafbf1c Boon <gheeboonting@gmail.com> 1782198099 +0800	commit: fix super-analyze: remove v1beta fallback, only use gemini-2.0-flash
+e18337367acacede6c6896b71cdadcfe3fafbf1c dcd9185366ec4ed559283ccf320ab4f3868393b7 Boon <gheeboonting@gmail.com> 1782198304 +0800	commit: fix super-analyze: use fetch directly instead of Gemini SDK
+dcd9185366ec4ed559283ccf320ab4f3868393b7 770c5741685a2170dde4549e139407e022fee5f0 Boon <gheeboonting@gmail.com> 1782198445 +0800	commit: add Claude Haiku fallback to super-analyze when Gemini quota exceeded
+770c5741685a2170dde4549e139407e022fee5f0 e8e72e215f83f75789ec73a0269ccfb062d7e9cf Boon <gheeboonting@gmail.com> 1782198626 +0800	commit: use Claude as fallback while credits last, free quota message when both exhausted
+e8e72e215f83f75789ec73a0269ccfb062d7e9cf 049693b4b014ca900baab5b4320903f3071ac438 Boon <gheeboonting@gmail.com> 1782198733 +0800	commit: add Claude error detail logging for debugging
+049693b4b014ca900baab5b4320903f3071ac438 d65491488a092510205450cc42ff810810731630 Boon <gheeboonting@gmail.com> 1782198983 +0800	commit: add product image and PDF export to Super Buyer report
+d65491488a092510205450cc42ff810810731630 bacc8d4cc2f8126de476bfa2079973019336989e Boon <gheeboonting@gmail.com> 1782199411 +0800	commit: add 6-category supplier credibility report to Super Buyer analysis
+bacc8d4cc2f8126de476bfa2079973019336989e 7a07a45dacddbc3ee3d21d163c19216839ba7b9b Boon <gheeboonting@gmail.com> 1782199926 +0800	commit: redesign supplier credibility: 6-dim scoring as internal logic, clean professional report output
+7a07a45dacddbc3ee3d21d163c19216839ba7b9b 31fd1496942b39fde774be488128ce9834c47f71 Boon <gheeboonting@gmail.com> 1782200194 +0800	commit: simplify sort to 3 options: price asc, credibility desc, sales desc
+31fd1496942b39fde774be488128ce9834c47f71 b0edd8305824b489172ec735407a38ce7a5e3d92 Boon <gheeboonting@gmail.com> 1782200309 +0800	commit: add AI smart pick: auto-select top 4 products by credibility+price+sales
+b0edd8305824b489172ec735407a38ce7a5e3d92 a69f820d167d62b5e14d10777baa080bebbbd401 Boon <gheeboonting@gmail.com> 1782200656 +0800	commit: fix build error: replace nested template literals in exportPDF with string concat
+a69f820d167d62b5e14d10777baa080bebbbd401 a6745d6f7e7760b872a095c70fbd830062b99c7c Boon <gheeboonting@gmail.com> 1782201013 +0800	commit: fix JSX: close missing header div that caused Turbopack parse error at line 553
+a6745d6f7e7760b872a095c70fbd830062b99c7c cfedd7e1b1723c697ff11a303ef2f5a64b0ef395 Boon <gheeboonting@gmail.com> 1782201756 +0800	commit: add visit link button to AI Smart Pick cards
+cfedd7e1b1723c697ff11a303ef2f5a64b0ef395 c485ad4221376582cbecc1902798f750a2da078d Boon <gheeboonting@gmail.com> 1782201930 +0800	commit: AI Smart Pick: filter by search keyword relevance before scoring
+c485ad4221376582cbecc1902798f750a2da078d 2a7eb96320236410880ef8b7fb680651eb7e079d Boon <gheeboonting@gmail.com> 1782202668 +0800	commit: add Taobao, PDD, 1688 platforms: types, parse, search, UI
+2a7eb96320236410880ef8b7fb680651eb7e079d 811000b99e8a89c8ddc96532ba0b3e0feccabbee Boon <gheeboonting@gmail.com> 1782202738 +0800	commit: fix sort option labels in i18n
+811000b99e8a89c8ddc96532ba0b3e0feccabbee 1b54f6010c992f17a677b49439bba9942365af67 Boon <gheeboonting@gmail.com> 1782203444 +0800	commit: add platform selector to results page search bar
+1b54f6010c992f17a677b49439bba9942365af67 0ab8ae36ab51f0e533512aab040c083f80f6b4e7 Boon <gheeboonting@gmail.com> 1782204837 +0800	commit: fix platform label in AI picks, improve taobao price parsing
+0ab8ae36ab51f0e533512aab040c083f80f6b4e7 20d2fe98cfa9ecebfbde0ebf6abb736248d85daa Boon <gheeboonting@gmail.com> 1782205017 +0800	commit: add manual CNY/MYR exchange rate input, persisted to localStorage
+20d2fe98cfa9ecebfbde0ebf6abb736248d85daa 6e6a241f8664c43e817c9e01fc3262d209320b5d Boon <gheeboonting@gmail.com> 1782205141 +0800	commit: flip CNY rate input to RM1=X¥ display
+6e6a241f8664c43e817c9e01fc3262d209320b5d 0527a9e6b30fc139d9f0686acd50a17f039e6053 Boon <gheeboonting@gmail.com> 1782362390 +0800	commit: Fix Taobao price: detect fen-format integers, filter label noise
+0527a9e6b30fc139d9f0686acd50a17f039e6053 aad6c120fda64e88ad8c53c50c414dd0eff32cb6 Boon <gheeboonting@gmail.com> 1782365367 +0800	commit: Strip 1688 link-copy artifact from product names
+aad6c120fda64e88ad8c53c50c414dd0eff32cb6 14e30d4c6ccf27dc085fc8e66d290c96b30d6af2 Boon <gheeboonting@gmail.com> 1782365935 +0800	commit: Fix 1688 name artifact: strip 标题链接 and variants
+14e30d4c6ccf27dc085fc8e66d290c96b30d6af2 a84c41a511264ca935490aa8fc08e3a937a7419c Boon <gheeboonting@gmail.com> 1782368031 +0800	commit: Fix AI picks: exclude generic trigrams to prevent unrelated products (bike bottles etc)
+a84c41a511264ca935490aa8fc08e3a937a7419c f8e93e45c43dde6dfc748488e69577792d417308 Boon <gheeboonting@gmail.com> 1782373104 +0800	commit: Increase 1688 frontend timeout to 30s to avoid race with scraper
+f8e93e45c43dde6dfc748488e69577792d417308 6e6244aef839e23ded8d7e8f78ed1c5f3f260cd7 Boon <gheeboonting@gmail.com> 1782373712 +0800	commit: Filter irrelevant 1688 products by query terms before display
+6e6244aef839e23ded8d7e8f78ed1c5f3f260cd7 0550cb42491fcbd75ba3f7ce3fd2bb24fd5bd3f4 Boon <gheeboonting@gmail.com> 1782374546 +0800	commit: AI picks: Chinese-name products must match CN product-type term, not just material brand
+0550cb42491fcbd75ba3f7ce3fd2bb24fd5bd3f4 d9b73811fb71861763b6d2ef5a12bd17c6750898 Boon <gheeboonting@gmail.com> 1782374807 +0800	commit: Fix AI picks card images: add referrerPolicy=no-referrer for 1688/Taobao CDN
+d9b73811fb71861763b6d2ef5a12bd17c6750898 08650e785a4d2866288d9efce5a49f69aa115856 Boon <gheeboonting@gmail.com> 1782378352 +0800	commit: Fix 1688 display filter: Chinese-name products must match CN terms, not just English material words
+08650e785a4d2866288d9efce5a49f69aa115856 7dfd49a69f95690f693e50f2a36c0edd89d01272 Boon <gheeboonting@gmail.com> 1782378890 +0800	commit: Auto-reload page when extension connects after Shopee missing warning
+7dfd49a69f95690f693e50f2a36c0edd89d01272 cc0610d9aa2be32886e33f01a935103e71e3f4e4 Boon <gheeboonting@gmail.com> 1782387816 +0800	commit: Raise product display caps to 40 for Taobao/PDD/1688 + extend timeouts
+cc0610d9aa2be32886e33f01a935103e71e3f4e4 53ac397bacc1354cdf26d1ec184b5869b33a4397 Boon <gheeboonting@gmail.com> 1782388322 +0800	commit: AI picks: rank by relevance first, then credibility > price > sales
+53ac397bacc1354cdf26d1ec184b5869b33a4397 163bff70096b13a8b78564f8a47e295bec6a5272 Boon <gheeboonting@gmail.com> 1782397831 +0800	commit: Soften Taobao scraper + detect anti-bot wall, add short result cache
+163bff70096b13a8b78564f8a47e295bec6a5272 a69cba5fe9bd29af5453836a1f617bad00fabf87 Boon <gheeboonting@gmail.com> 1782400731 +0800	commit: Add "在 1688 找同款" image search (find products by photo, no keyword)
+a69cba5fe9bd29af5453836a1f617bad00fabf87 9492d86f5a35f4ae1f03c7a5dc61384ceef79f93 Boon <gheeboonting@gmail.com> 1783397719 +0800	commit: Surface human-verification wall to the user instead of failing
+9492d86f5a35f4ae1f03c7a5dc61384ceef79f93 c5f91c9df3da7e2f480c1865c23d98a8949425a5 Boon <gheeboonting@gmail.com> 1783399742 +0800	commit: Drop absurdly-priced products so they can't blow up the market average
+c5f91c9df3da7e2f480c1865c23d98a8949425a5 8e4d6eabf6e865860bb1c51a68507dcc4847de99 Boon <gheeboonting@gmail.com> 1783402703 +0800	commit: PDD: surface login wall to user + "needs sign-in" notice
+8e4d6eabf6e865860bb1c51a68507dcc4847de99 03b0887f396532d7d1bd2fff7ac6fa04ec15339a Boon <gheeboonting@gmail.com> 1783412515 +0800	commit: Archive full working system: bundle Chrome extension + setup/migration guide
+03b0887f396532d7d1bd2fff7ac6fa04ec15339a 422c0253b077efd97d01680624bc39e27ccf539b Boon <gheeboonting@gmail.com> 1783414519 +0800	commit: Foundation for merchant/bestseller mode: capture Shopee demand signals
+422c0253b077efd97d01680624bc39e27ccf539b 735fd25f0bfb44ab19d42c69cb557d1a0a0bf57c Boon <gheeboonting@gmail.com> 1783415759 +0800	commit: Merchant mode v1: bestseller-potential panel + sort (replaces AI picks)
+735fd25f0bfb44ab19d42c69cb557d1a0a0bf57c eace11e0123839d036c7ec2aaf6c43d4d2672055 Boon <gheeboonting@gmail.com> 1783416386 +0800	commit: Cost+margin pricing guide + move AI deep analysis to compare page
+eace11e0123839d036c7ec2aaf6c43d4d2672055 62c9c6d2a4519e8e44136835100a35e142923d55 Boon <gheeboonting@gmail.com> 1783416591 +0800	commit: PDD deep links: build goods_id URLs in the DOM fallbacks
+62c9c6d2a4519e8e44136835100a35e142923d55 f406087004f341dd0966755786152c1f1b8dcf85 Boon <gheeboonting@gmail.com> 1783418190 +0800	commit: Dashboard: fix stale "2 platforms" copy + add feature overview
+f406087004f341dd0966755786152c1f1b8dcf85 31c80c108352dc8258d65a3a0b81603a05fbde81 Boon <gheeboonting@gmail.com> 1783418372 +0800	commit: Dashboard: clarify photo feature uses both Taobao (识别) and 1688 (找同款)
+31c80c108352dc8258d65a3a0b81603a05fbde81 032e547998c5309ffaf6569638bb57d5b3a6ff02 Boon <gheeboonting@gmail.com> 1783419102 +0800	commit: Photo ID: add cautious AI backup when Taobao 拍立淘 fails
+032e547998c5309ffaf6569638bb57d5b3a6ff02 3c3bdf0b53a34115dd5963400f11cd9b0b5b63ac Boon <gheeboonting@gmail.com> 1783420072 +0800	commit: Dashboard: 45s search cooldown after China-platform searches
+3c3bdf0b53a34115dd5963400f11cd9b0b5b63ac b40021517c58de9f792cf029f6fd4844468d5e49 Boon <gheeboon87@hotmail.com> 1783438530 +0800	merge origin/main: Fast-forward
+b40021517c58de9f792cf029f6fd4844468d5e49 d6b531344c54454192d5f6fde293df6888796fdb Boon <gheeboon87@hotmail.com> 1783438958 +0800	commit: Photo ID: wait 35s for Taobao 拍立淘 before falling back to AI

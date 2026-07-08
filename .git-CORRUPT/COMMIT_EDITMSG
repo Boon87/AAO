@@ -1,0 +1,16 @@
+1688: distill long Taobao-style titles into short wholesale keywords
+
+Live test: searching the photo-ID keyword "史努比纯棉四件套可爱卡通漫画
+学生宿舍被套" returned generic cartoon bedding on 1688 - no Snoopy. 1688
+is a wholesale search engine tuned for short supplier keywords; long
+marketing titles make its segmenter latch onto filler words (可爱/学生/
+宿舍...) and match same-category generic goods.
+
+New distillCnKeyword(): queries over 10 chars get pure-marketing filler
+stripped (可爱/卡通/新款/网红/学生/宿舍/多功能...) then capped at 12
+chars, preserving brand + material + product type. Short queries are
+untouched (filler may be the core there, e.g. 卡通四件套). Verified on
+real queries: Snoopy title -> 史努比纯棉四件套被套; scissors title ->
+多层厨房不锈钢层葱花剪刀. Applied only to the 1688 keyword search.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
