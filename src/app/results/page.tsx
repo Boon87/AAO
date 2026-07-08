@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search, SlidersHorizontal, GitCompare, ArrowUpDown,
-  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle, ExternalLink, Camera,
+  ChevronDown, SearchX, RotateCcw, Loader2, AlertCircle, ExternalLink, Camera, TrendingUp,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Navbar } from "@/components/navbar";
@@ -666,6 +666,30 @@ function ResultsContent() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Market overview built purely from FOUND PRICES — the one signal that's almost
+  // always present (every listing has a price), unlike sales/reviews which platforms
+  // hide. Uses the MEDIAN so a lone high outlier (e.g. one RM59 listing) doesn't
+  // skew "typical price". Gives a usable read even when demand data is missing.
+  const marketRead = (() => {
+    const median = (arr: number[]) => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const myPrices = allProducts.filter((p) => p.platform === "shopee" || p.platform === "lazada").map((p) => p.price).filter((p) => p > 0);
+    const cnPrices = allProducts.filter((p) => ["taobao", "pinduoduo", "1688"].includes(p.platform)).map((p) => p.price).filter((p) => p > 0);
+    if (!myPrices.length && !cnPrices.length) return null;
+    const myMed = median(myPrices);
+    const myLo = myPrices.length ? Math.min(...myPrices) : 0;
+    const myHi = myPrices.length ? Math.max(...myPrices) : 0;
+    const cheapestCn = cnPrices.length ? Math.min(...cnPrices) : 0;
+    const marginRM = myMed > 0 && cheapestCn > 0 ? +(myMed - cheapestCn).toFixed(2) : 0;
+    const marginPct = myMed > 0 && cheapestCn > 0 ? Math.round((marginRM / myMed) * 100) : 0;
+    const spread = myLo > 0 ? myHi / myLo : 1; // wide = differentiated, tight = commodity
+    return { myCount: myPrices.length, cnCount: cnPrices.length, myMed, myLo, myHi, cheapestCn, marginRM, marginPct, spread };
+  })();
+
   // Platforms the user SELECTED that came back empty for no explained reason
   // (not already covered by the extension/anti-bot/login/error banners). Their
   // filter tab silently disappears otherwise — this tells the user why + what to do.
@@ -874,6 +898,57 @@ function ResultsContent() {
                 </button>
               )}
             </div>
+
+            {/* Market overview — judgment from found PRICE data (works even when
+                sales/reviews are missing). Median-based so outliers don't skew it. */}
+            {marketRead && (
+              <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-4 h-4 text-indigo-600" />
+                  <h2 className="text-sm font-bold text-slate-800">{lang === "zh" ? "市场概况" : "Market Overview"}</h2>
+                  <span className="text-[11px] text-slate-400">{lang === "zh" ? `基于找到的 ${marketRead.myCount + marketRead.cnCount} 个价格` : `from ${marketRead.myCount + marketRead.cnCount} found prices`}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[11px] text-slate-400">{lang === "zh" ? "马来在卖 / 中国货源" : "MY sellers / CN sources"}</p>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">{marketRead.myCount} <span className="text-slate-300">/</span> {marketRead.cnCount}</p>
+                  </div>
+                  {marketRead.myMed > 0 && (
+                    <div>
+                      <p className="text-[11px] text-slate-400">{lang === "zh" ? "马来售价区间" : "MY price range"}</p>
+                      <p className="text-sm font-bold text-slate-800 mt-0.5">RM {marketRead.myLo.toFixed(2)}–{marketRead.myHi.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {marketRead.myMed > 0 && (
+                    <div>
+                      <p className="text-[11px] text-slate-400">{lang === "zh" ? "中位价（典型价）" : "Median (typical)"}</p>
+                      <p className="text-sm font-bold text-indigo-700 mt-0.5">RM {marketRead.myMed.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {marketRead.cheapestCn > 0 && (
+                    <div>
+                      <p className="text-[11px] text-slate-400">{lang === "zh" ? "最低进货价" : "Cheapest source"}</p>
+                      <p className="text-sm font-bold text-green-700 mt-0.5">RM {marketRead.cheapestCn.toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+                {/* One-line read, purely from prices */}
+                {(() => {
+                  const parts: string[] = [];
+                  if (marketRead.myMed > 0 && marketRead.cheapestCn > 0) {
+                    if (marketRead.marginRM <= 0) parts.push(lang === "zh" ? `🔴 进货价已≥市场中位价，几乎没利润空间` : `🔴 source cost ≥ median price — almost no margin`);
+                    else if (marketRead.marginPct < 25) parts.push(lang === "zh" ? `🟡 中位价卖毛利约 RM ${marketRead.marginRM.toFixed(2)}（${marketRead.marginPct}%），偏薄` : `🟡 ~RM ${marketRead.marginRM.toFixed(2)} (${marketRead.marginPct}%) gross at median — thin`);
+                    else parts.push(lang === "zh" ? `🟢 中位价卖毛利约 RM ${marketRead.marginRM.toFixed(2)}（${marketRead.marginPct}%），有空间` : `🟢 ~RM ${marketRead.marginRM.toFixed(2)} (${marketRead.marginPct}%) gross at median — room`);
+                  }
+                  if (marketRead.myCount >= 3) parts.push(marketRead.spread >= 2.5
+                    ? (lang === "zh" ? "价格分散 → 有差异化 / 高端空间" : "wide spread → room to differentiate")
+                    : (lang === "zh" ? "价格集中 → 主要拼价格" : "tight spread → competes on price"));
+                  if (!parts.length) return null;
+                  return <p className="text-xs text-slate-600 mt-3 pt-3 border-t border-slate-100 leading-relaxed">{parts.join(lang === "zh" ? "　·　" : "  ·  ")}</p>;
+                })()}
+                <p className="text-[11px] text-slate-400 mt-2">{lang === "zh" ? "※ 此判断只用价格，不受销量/评价缺失影响；毛利未算运费、关税、平台佣金。" : "※ Price-only read, unaffected by missing sales/reviews; gross margin excludes shipping/duties/fees."}</p>
+              </div>
+            )}
 
             {/* Filter bar */}
             <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 mb-6 flex flex-wrap items-center gap-3">
