@@ -1336,7 +1336,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "shopee_search") {
-    const url = `https://shopee.com.my/search?keyword=${encodeURIComponent(message.keyword)}`;
+    // sortBy=sales → Shopee returns TOP-SELLING items first. Shopee hides the raw
+    // sold numbers, but still sorts by real sales server-side, so this surfaces
+    // products that actually sell (more of them have reviews/favorites = real
+    // demand data) instead of the default "relevancy" mix full of brand-new,
+    // zero-engagement dropship listings that all read "数据不足". Better for 选品.
+    const url = `https://shopee.com.my/search?keyword=${encodeURIComponent(message.keyword)}&sortBy=sales`;
     console.log("[AAO] Opening Shopee tab:", message.keyword);
     searchViaTab(url)
       .then((r) => sendResponse(r))
